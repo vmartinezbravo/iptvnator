@@ -1,12 +1,12 @@
 import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { Injector, runInInjectionContext } from '@angular/core';
+import { inject, Injector, runInInjectionContext } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SwUpdate } from '@angular/service-worker';
 import { Store } from '@ngrx/store';
 import { TranslateService } from '@ngx-translate/core';
 import { EMPTY, firstValueFrom } from 'rxjs';
-import { PlaylistsService } from '@iptvnator/services';
+import { DataService, PlaylistsService } from '@iptvnator/services';
 import {
     CONNECTIVITY_GUARD_RESET,
     ERROR,
@@ -260,5 +260,43 @@ describe('DataFactory', () => {
 
     it('DataFactory keeps PwaService in a browser', () => {
         expect(resolveWith()).toEqual({ kind: 'pwa' });
+    });
+});
+
+describe('NativeDataService wiring', () => {
+    afterEach(() => {
+        delete (window as { Capacitor?: unknown }).Capacitor;
+    });
+
+    it('builds without a DI cycle when PlaylistsService depends on DataService', () => {
+        (window as { Capacitor?: unknown }).Capacitor = {
+            isNativePlatform: () => true,
+        };
+        TestBed.configureTestingModule({
+            imports: [HttpClientTestingModule],
+            providers: [
+                { provide: DataService, useFactory: DataFactory },
+                {
+                    // Like the app: PlaylistsService reaches DataService
+                    // through its own dependencies.
+                    provide: PlaylistsService,
+                    useFactory: () => {
+                        inject(DataService);
+                        return { handlePlaylistParsing: jest.fn() };
+                    },
+                },
+                { provide: NATIVE_HTTP, useValue: { get: jest.fn() } },
+                { provide: MatSnackBar, useValue: { open: jest.fn() } },
+                { provide: Store, useValue: { dispatch: jest.fn() } },
+                { provide: SwUpdate, useValue: { versionUpdates: EMPTY } },
+                {
+                    provide: TranslateService,
+                    useValue: { instant: jest.fn((key: string) => key) },
+                },
+            ],
+        });
+
+        expect(() => TestBed.inject(PlaylistsService)).not.toThrow();
+        expect(TestBed.inject(DataService)).toBeInstanceOf(NativeDataService);
     });
 });

@@ -1,4 +1,4 @@
-import { inject, Injectable, InjectionToken } from '@angular/core';
+import { inject, Injectable, InjectionToken, Injector } from '@angular/core';
 import { CapacitorHttp, HttpOptions } from '@capacitor/core';
 import { from, Observable } from 'rxjs';
 import { PlaylistsService } from '@iptvnator/services';
@@ -41,7 +41,9 @@ const STALKER_UNSUPPORTED_STATUS = 501;
 })
 export class NativeDataService extends PwaService {
     private readonly nativeHttp = inject(NATIVE_HTTP);
-    private readonly playlistsService = inject(PlaylistsService);
+    // PlaylistsService depends on DataService, which is this service in the
+    // native shell: resolve it on use, not at construction.
+    private readonly injector = inject(Injector);
     protected override readonly xtreamDebugTransport: PortalDebugTransport =
         'native-http';
 
@@ -123,11 +125,13 @@ export class NativeDataService extends PwaService {
                 { status: response.status }
             );
         }
-        return (await this.playlistsService.handlePlaylistParsing(
-            'URL',
-            String(response.data ?? ''),
-            playlistTitleFromUrl(url),
-            url
-        )) as Playlist;
+        return (await this.injector
+            .get(PlaylistsService)
+            .handlePlaylistParsing(
+                'URL',
+                String(response.data ?? ''),
+                playlistTitleFromUrl(url),
+                url
+            )) as Playlist;
     }
 }
