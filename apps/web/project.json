@@ -13,7 +13,10 @@
     "targets": {
         "build": {
             "executor": "@angular/build:application",
-            "outputs": ["{workspaceRoot}/dist/apps/web"],
+            "outputs": [
+                "{workspaceRoot}/dist/apps/web",
+                "{workspaceRoot}/dist/apps/web-android"
+            ],
             "options": {
                 "outputPath": {
                     "base": "dist/apps/web",
@@ -113,6 +116,44 @@
                         {
                             "replace": "apps/web/src/environments/environment.ts",
                             "with": "apps/web/src/environments/environment.prod.ts"
+                        }
+                    ]
+                },
+                "android": {
+                    "baseHref": "/",
+                    "serviceWorker": false,
+                    "outputPath": {
+                        "base": "dist/apps/web-android",
+                        "browser": ""
+                    },
+                    "budgets": [
+                        {
+                            "type": "initial",
+                            "maximumWarning": "1.8mb",
+                            "maximumError": "2mb"
+                        },
+                        {
+                            "type": "anyComponentStyle",
+                            "maximumWarning": "12.5kb",
+                            "maximumError": "15kb"
+                        }
+                    ],
+                    "outputHashing": "all",
+                    "optimization": {
+                        "scripts": true,
+                        "styles": {
+                            "minify": true,
+                            "inlineCritical": false,
+                            "removeSpecialComments": true
+                        },
+                        "fonts": true
+                    },
+                    "extractLicenses": true,
+                    "sourceMap": false,
+                    "fileReplacements": [
+                        {
+                            "replace": "apps/web/src/environments/environment.ts",
+                            "with": "apps/web/src/environments/environment.android.ts"
                         }
                     ]
                 },
