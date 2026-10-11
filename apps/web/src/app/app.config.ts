@@ -8,7 +8,7 @@ import {
     FullscreenOverlayContainer,
     OverlayContainer,
 } from '@angular/cdk/overlay';
-import { ApplicationConfig, inject, importProvidersFrom } from '@angular/core';
+import { ApplicationConfig, importProvidersFrom } from '@angular/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
@@ -35,12 +35,11 @@ import { dbConfig } from '@iptvnator/shared/interfaces';
 import { changeDetectionProviders } from '../environments/change-detection.providers';
 import { storeDevtoolsProviders } from '../environments/store-devtools.providers';
 import { routes } from './app.routes';
-import { ElectronService } from './services/electron.service';
+import { DataFactory } from './services/data-factory';
 import { ExternalPlaybackService } from './services/external-playback.service';
 import { PlayerService } from './services/player.service';
 import { provideParentalLockPrompt } from './services/parental-lock-prompt.service';
 import { providePortalPlaybackPositions } from './services/portal-playback-positions.service';
-import { PwaService } from './services/pwa.service';
 import { shouldEnableServiceWorker } from './services/runtime-config';
 import { LazyStalkerPlaylistConnectionEditor } from './services/lazy-stalker-playlist-connection-editor';
 import { provideWorkspaceShellActions } from './services/workspace-shell-actions.service';
@@ -91,16 +90,6 @@ export function getInitialLanguage(): string {
         // localStorage may throw in privacy modes; fall through to default.
     }
     return 'en';
-}
-
-/**
- * Conditionally provides the necessary service based on the current environment
- */
-export function DataFactory() {
-    if (window.electron) {
-        return inject(ElectronService);
-    }
-    return inject(PwaService);
 }
 
 export const appConfig: ApplicationConfig = {

@@ -19,6 +19,7 @@ import {
     ERROR,
     isHostConnectivityFastFailMessage,
     Playlist,
+    PortalDebugTransport,
     PLAYLIST_PARSE_BY_URL,
     PLAYLIST_UPDATE,
     STALKER_REQUEST,
@@ -47,9 +48,20 @@ import { getRuntimeBackendUrl } from './runtime-config';
  */
 const CONNECTIVITY_GUARD_RESET_TIMEOUT_MS = 5_000;
 
-interface PwaXtreamResponse {
+export interface PwaXtreamResponse {
     readonly payload?: unknown;
     readonly status?: number;
+    readonly message?: string;
+}
+
+export interface XtreamRequestPayload {
+    connectionTest?: boolean;
+    url: string;
+    params: Record<string, string>;
+    macAddress?: string;
+    requestId?: string;
+    sessionId?: string;
+    suppressErrorLog?: boolean;
 }
 
 interface PwaXtreamResult {
@@ -82,8 +94,9 @@ export class PwaService extends DataService {
     private readonly snackBar = inject(MatSnackBar);
     private readonly store = inject(Store);
     private readonly swUpdate = inject(SwUpdate);
-    private readonly translateService = inject(TranslateService);
+    protected readonly translateService = inject(TranslateService);
     private readonly logger = createLogger('PwaService');
+    protected readonly xtreamDebugTransport: PortalDebugTransport = 'pwa-http';
     private readonly providerTargetIds = new Map<string, Promise<string>>();
     private readonly silentXtreamActions = new Set<string>([
         XtreamCodeActions.GetAccountInfo,
@@ -175,7 +188,7 @@ export class PwaService extends DataService {
      * own request reports the real state, and `resetHostConnectivityGuard`
      * swallows whatever this rejects with.
      */
-    private async resetConnectivityGuard(payload: {
+    protected async resetConnectivityGuard(payload: {
         url?: string;
     }): Promise<{ reset: boolean }> {
         if (!payload?.url) {
@@ -372,15 +385,16 @@ export class PwaService extends DataService {
         return match ? parseInt(match[1], 10) : null;
     }
 
-    async forwardXtreamRequest(payload: {
-        connectionTest?: boolean;
-        url: string;
-        params: Record<string, string>;
-        macAddress?: string;
-        requestId?: string;
-        sessionId?: string;
-        suppressErrorLog?: boolean;
-    }) {
+    /**
+     * Sends one Xtream API call and returns the backend-shaped answer:
+     * `{ payload }` on success, `{ status, message }` for a provider error,
+     * or the connection-test evidence. Transport failures reject.
+     * `logRequest` receives the request as sent, for the portal debug log.
+     */
+    protected async sendXtreamRequest(
+        payload: XtreamRequestPayload,
+        logRequest: (request: unknown) => void
+    ): Promise<PwaXtreamResponse> {
         const headers = payload.macAddress
             ? {
                   headers: {
@@ -388,54 +402,50 @@ export class PwaService extends DataService {
                   },
               }
             : {};
-        let context = createPortalDebugRequestContext({
-            provider: 'xtream',
-            operation: payload.params?.action ?? 'unknown',
-            transport: 'pwa-http',
-            request: {
-                method: 'GET',
-                params: payload.params,
-                url: `${this.corsProxyUrl}/xtream`,
-            },
+        const targetId = await this.getProviderTargetId(payload.url);
+        const requestParams = {
+            targetId,
+            ...payload.params,
+            ...(payload.connectionTest ? { connectionTest: 'true' } : {}),
+        };
+        logRequest({
+            method: 'GET',
+            params: requestParams,
+            url: `${this.corsProxyUrl}/xtream`,
+            ...headers,
+        });
+
+        return (await firstValueFrom(
+            this.http.get<PwaXtreamResponse>(`${this.corsProxyUrl}/xtream`, {
+                params: requestParams,
+                ...headers,
+            })
+        )) as PwaXtreamResponse;
+    }
+
+    async forwardXtreamRequest(payload: XtreamRequestPayload) {
+        const createContext = (request: unknown) =>
+            createPortalDebugRequestContext({
+                provider: 'xtream',
+                operation: payload.params?.action ?? 'unknown',
+                transport: this.xtreamDebugTransport,
+                request,
+            });
+        let context = createContext({
+            method: 'GET',
+            params: payload.params,
+            url: `${this.corsProxyUrl}/xtream`,
         });
 
         try {
-            const targetId = await this.getProviderTargetId(payload.url);
-            const requestParams = {
-                targetId,
-                ...payload.params,
-                ...(payload.connectionTest ? { connectionTest: 'true' } : {}),
-            };
-            const requestPayload = {
-                method: 'GET',
-                params: requestParams,
-                url: `${this.corsProxyUrl}/xtream`,
-                ...(payload.macAddress
-                    ? {
-                          headers: {
-                              Cookie: `mac=${payload.macAddress}`,
-                          },
-                      }
-                    : {}),
-            };
-            context = createPortalDebugRequestContext({
-                provider: 'xtream',
-                operation: payload.params?.action ?? 'unknown',
-                transport: 'pwa-http',
-                request: requestPayload,
-            });
-            logPortalDebugRequest(context);
-
             let result: PwaErrorResult | PwaXtreamResult;
-            const response = (await firstValueFrom(
-                this.http.get<PwaXtreamResponse>(
-                    `${this.corsProxyUrl}/xtream`,
-                    {
-                        params: requestParams,
-                        ...headers,
-                    }
-                )
-            )) as PwaXtreamResponse;
+            const response = await this.sendXtreamRequest(
+                payload,
+                (request) => {
+                    context = createContext(request);
+                    logPortalDebugRequest(context);
+                }
+            );
 
             if (payload.connectionTest) return response;
 
