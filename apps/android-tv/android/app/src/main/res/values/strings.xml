@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">IPTVnator</string>
+    <string name="title_activity_main">IPTVnator</string>
+    <string name="package_name">com.victor.iptvnator</string>
+    <string name="custom_url_scheme">com.victor.iptvnator</string>
+</resources>

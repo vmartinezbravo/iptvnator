@@ -100,3 +100,9 @@ vendor/embedded-mpv/*/runtime-manifest.json
 # MemPalace per-project files (issue #185)
 mempalace.yaml
 entities.json
+
+# Android / Capacitor (apps/android-tv)
+apps/android-tv/android/app/build/
+apps/android-tv/android/.gradle/
+*.jks
+keystore.properties

@@ -1,0 +1,39 @@
+{
+    "name": "android-tv",
+    "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "projectType": "application",
+    "sourceRoot": "apps/android-tv",
+    "tags": ["scope:android", "type:app"],
+    "implicitDependencies": ["web"],
+    "targets": {
+        "sync": {
+            "executor": "nx:run-commands",
+            "options": {
+                "commands": [
+                    "nx build web --configuration=android",
+                    "cap sync android"
+                ],
+                "parallel": false,
+                "cwd": "apps/android-tv"
+            }
+        },
+        "assemble-debug": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "node tools/android/gradlew.mjs assembleDebug"
+            }
+        },
+        "test-native": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "node tools/android/gradlew.mjs test"
+            }
+        },
+        "install-debug": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "adb install -r apps/android-tv/android/app/build/outputs/apk/debug/app-debug.apk"
+            }
+        }
+    }
+}
