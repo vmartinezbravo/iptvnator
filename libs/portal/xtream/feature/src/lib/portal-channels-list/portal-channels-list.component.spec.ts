@@ -46,6 +46,8 @@ describe('PortalChannelsListComponent', () => {
     const originalElectron = testWindow.electron;
     let fixture: ComponentFixture<PortalChannelsListComponent>;
     let providerEpgOnly = false;
+    let performanceMark: jest.Mock;
+    let consoleInfo: jest.SpyInstance;
     const selectedChannels = signal<unknown[]>([]);
     const selectedItem = signal<unknown>(null);
     const epgItems = signal<unknown[]>([]);
@@ -77,6 +79,15 @@ describe('PortalChannelsListComponent', () => {
 
     beforeEach(async () => {
         providerEpgOnly = false;
+        // jsdom has no User Timing marks; LiveListReadyMark sets one.
+        performanceMark = jest.fn();
+        Object.defineProperty(performance, 'mark', {
+            configurable: true,
+            value: performanceMark,
+        });
+        consoleInfo = jest
+            .spyOn(console, 'info')
+            .mockImplementation(() => undefined);
         Object.defineProperty(window, 'electron', {
             configurable: true,
             writable: true,
@@ -171,6 +182,8 @@ describe('PortalChannelsListComponent', () => {
 
     afterEach(() => {
         jest.useRealTimers();
+        consoleInfo.mockRestore();
+        delete (performance as { mark?: unknown }).mark;
         Object.defineProperty(window, 'electron', {
             configurable: true,
             writable: true,
@@ -196,6 +209,26 @@ describe('PortalChannelsListComponent', () => {
         expect(
             fixture.nativeElement.querySelector('.empty-search-state')
         ).toBeNull();
+    });
+
+    it('emits the live-list-ready mark once', () => {
+        fixture.detectChanges();
+        expect(performanceMark).not.toHaveBeenCalledWith(
+            'iptvnator:live-list-ready'
+        );
+
+        selectedTypeContentLoading.set(false);
+        selectedChannels.set([{ xtream_id: 1, title: 'One' }]);
+        fixture.detectChanges();
+        selectedChannels.set([{ xtream_id: 2, title: 'Two' }]);
+        fixture.detectChanges();
+
+        // Angular sets its own feature-usage marks; count only ours.
+        expect(
+            performanceMark.mock.calls.filter(
+                ([name]) => name === 'iptvnator:live-list-ready'
+            )
+        ).toHaveLength(1);
     });
 
     it('renders the empty state once loading has finished and the selected category has no channels', () => {

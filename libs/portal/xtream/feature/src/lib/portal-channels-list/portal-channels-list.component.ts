@@ -64,6 +64,7 @@ import {
     toSharedEpgProgram,
 } from './epg-preview-program';
 import { EpgRefillLimiter } from './epg-refill-limiter.service';
+import { LiveListReadyMark } from './live-list-ready-mark.service';
 import {
     epgQueueEntryFor,
     EpgRefreshContribution,
@@ -198,6 +199,16 @@ export class PortalChannelsListComponent implements AfterViewInit, OnDestroy {
     private readonly settingsStore = inject(SettingsStore);
 
     constructor(private cdr: ChangeDetectorRef) {
+        // Startup measurement (Android port): first live list with rows.
+        const liveListReady = inject(LiveListReadyMark);
+        effect(() => {
+            if (
+                this.xtreamStore.selectedContentType() === 'live' &&
+                this.filteredChannels().length > 0
+            ) {
+                untracked(() => liveListReady.emitOnce());
+            }
+        });
         this.subscriptions.add(
             inject(EpgSourceSettingsService).changed$.subscribe(() => {
                 this.repickPreviewsForOffsetChange();
