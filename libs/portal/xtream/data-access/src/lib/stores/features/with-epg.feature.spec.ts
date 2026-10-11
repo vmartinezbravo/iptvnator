@@ -44,6 +44,8 @@ function buildProgram(
 
 interface TestStoreSetup {
     appEnvironment?: 'electron' | 'pwa';
+    /** Defaults to the XMLTV bridge capability (`supportsEpg`). */
+    supportsProviderEpg?: boolean;
     selectedItem: { xtream_id: number; epg_channel_id?: string | null };
     preferUploaded?: boolean;
     epgOffsetMinutes?: number;
@@ -84,6 +86,12 @@ function configureStore(setup: TestStoreSetup) {
                 useValue: {
                     get supportsEpg() {
                         return (setup.appEnvironment ?? 'electron') !== 'pwa';
+                    },
+                    get supportsProviderEpg() {
+                        return (
+                            setup.supportsProviderEpg ??
+                            (setup.appEnvironment ?? 'electron') !== 'pwa'
+                        );
                     },
                 },
             },
@@ -184,9 +192,64 @@ describe('withEpg', () => {
         expect(fallbackService.getProgramsForChannel).not.toHaveBeenCalled();
     });
 
-    it('does not load Xtream or XMLTV EPG in browser/PWA mode', async () => {
+    it('loadChannelEpg uses provider short EPG when only provider EPG is supported', async () => {
+        const { store, xtreamApiService } = configureStore({
+            appEnvironment: 'pwa',
+            supportsProviderEpg: true,
+            selectedItem: { xtream_id: 101 },
+        });
+        const now = Math.floor(Date.now() / 1000);
+        const nowItem = buildProgram('Now Show', now - 600, now + 600);
+        const nextItem = buildProgram('Next Show', now + 600, now + 1800);
+        xtreamApiService.getShortEpg.mockResolvedValue([nowItem, nextItem]);
+
+        await expect(store.loadChannelEpg(42, null)).resolves.toEqual([
+            nowItem,
+            nextItem,
+        ]);
+        expect(xtreamApiService.getShortEpg).toHaveBeenCalledWith(
+            {
+                serverUrl: 'http://demo.example',
+                username: 'demo',
+                password: 'secret',
+            },
+            42,
+            1,
+            { suppressErrorLog: true }
+        );
+    });
+
+    it('loadChannelEpg returns [] when the provider has no listings', async () => {
         const { store, xtreamApiService, fallbackService } = configureStore({
             appEnvironment: 'pwa',
+            supportsProviderEpg: true,
+            selectedItem: { xtream_id: 101 },
+        });
+        xtreamApiService.getShortEpg.mockResolvedValue([]);
+
+        await expect(store.loadChannelEpg(42, null)).resolves.toEqual([]);
+        expect(xtreamApiService.getShortEpg).toHaveBeenCalledTimes(1);
+        expect(fallbackService.getProgramsForChannel).not.toHaveBeenCalled();
+    });
+
+    it('loadEpg uses the provider full EPG when only provider EPG is supported', async () => {
+        const { store, xtreamApiService } = configureStore({
+            appEnvironment: 'pwa',
+            supportsProviderEpg: true,
+            selectedItem: { xtream_id: 101 },
+        });
+        const now = Math.floor(Date.now() / 1000);
+        const programs = [buildProgram('Live Show', now - 600, now + 600)];
+        xtreamApiService.getFullEpg.mockResolvedValue(programs);
+
+        await expect(store.loadEpg()).resolves.toEqual(programs);
+        expect(store.currentEpgItem()).toEqual(programs[0]);
+    });
+
+    it('does not load Xtream or XMLTV EPG when the runtime supports no EPG', async () => {
+        const { store, xtreamApiService, fallbackService } = configureStore({
+            appEnvironment: 'pwa',
+            supportsProviderEpg: false,
             selectedItem: { xtream_id: 101, epg_channel_id: 'rtl.de' },
         });
 

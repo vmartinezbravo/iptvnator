@@ -127,6 +127,15 @@ export class RuntimeCapabilitiesService {
         );
     }
 
+    /**
+     * The provider's own EPG (Xtream `get_short_epg` / `get_simple_data_table`)
+     * for row "now / next" and the live panel. The browser runtime reaches it
+     * over HTTP without the XMLTV bridge; desktop keeps following `supportsEpg`.
+     */
+    get supportsProviderEpg(): boolean {
+        return this.supportsEpg || this.isPwa;
+    }
+
     get supportsEpgImport(): boolean {
         return this.hasElectronMethod('fetchEpg');
     }

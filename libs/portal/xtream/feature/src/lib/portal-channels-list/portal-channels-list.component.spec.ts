@@ -45,6 +45,7 @@ describe('PortalChannelsListComponent', () => {
     const testWindow = window as unknown as { electron?: unknown };
     const originalElectron = testWindow.electron;
     let fixture: ComponentFixture<PortalChannelsListComponent>;
+    let providerEpgOnly = false;
     const selectedChannels = signal<unknown[]>([]);
     const selectedItem = signal<unknown>(null);
     const epgItems = signal<unknown[]>([]);
@@ -75,6 +76,7 @@ describe('PortalChannelsListComponent', () => {
     };
 
     beforeEach(async () => {
+        providerEpgOnly = false;
         Object.defineProperty(window, 'electron', {
             configurable: true,
             writable: true,
@@ -140,6 +142,9 @@ describe('PortalChannelsListComponent', () => {
                     useValue: {
                         get supportsEpg() {
                             return Boolean(window.electron);
+                        },
+                        get supportsProviderEpg() {
+                            return providerEpgOnly || Boolean(window.electron);
                         },
                     },
                 },
@@ -772,7 +777,49 @@ describe('PortalChannelsListComponent', () => {
         expect(epgQueueService.enqueue).not.toHaveBeenCalled();
     });
 
-    it('does not derive or subscribe to row EPG previews in browser/PWA mode', async () => {
+    it('shows now/next rows when only provider EPG is supported', async () => {
+        Object.defineProperty(window, 'electron', {
+            configurable: true,
+            writable: true,
+            value: undefined,
+        });
+        providerEpgOnly = true;
+        selectedTypeContentLoading.set(false);
+        selectedChannels.set([{ title: 'Cartoon Network', xtream_id: 50 }]);
+
+        fixture.destroy();
+        fixture = TestBed.createComponent(PortalChannelsListComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        epgResults$.next({
+            streamId: 50,
+            items: [
+                buildEpgItem({
+                    id: 'provider-current',
+                    title: 'Provider Current Show',
+                    start: new Date(Date.now() - 60_000).toISOString(),
+                    stop: new Date(Date.now() + 60_000).toISOString(),
+                    startTimestamp: Math.floor((Date.now() - 60_000) / 1000),
+                    stopTimestamp: Math.floor((Date.now() + 60_000) / 1000),
+                }),
+            ],
+        });
+        fixture.detectChanges();
+
+        const component = fixture.componentInstance;
+        expect(component.channelItemSize).toBe(68);
+        expect(component.epgPrograms.get(50)?.title).toBe(
+            'Provider Current Show'
+        );
+        const virtualScroll = fixture.debugElement
+            .query(By.css('cdk-virtual-scroll-viewport'))
+            .injector.get(CdkFixedSizeVirtualScroll);
+        expect(virtualScroll.itemSize).toBe(68);
+    });
+
+    it('does not derive or subscribe to row EPG previews when the runtime supports no EPG', async () => {
         Object.defineProperty(window, 'electron', {
             configurable: true,
             writable: true,
@@ -818,7 +865,7 @@ describe('PortalChannelsListComponent', () => {
         });
 
         const pwaComponent = fixture.componentInstance;
-        expect(pwaComponent.supportsEpg).toBe(false);
+        expect(pwaComponent.supportsProviderEpg).toBe(false);
         expect(pwaComponent.channelItemSize).toBe(52);
         expect(pwaComponent.epgPrograms.size).toBe(0);
         expect(pwaComponent.currentProgramsProgress.size).toBe(0);

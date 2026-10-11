@@ -58,6 +58,7 @@ const LIVE_CHANNEL_SORT_STORAGE_KEY = 'xtream-live-channel-sort-mode';
 describe('LiveStreamLayoutComponent', () => {
     let fixture: ComponentFixture<LiveStreamLayoutComponent>;
     let component: LiveStreamLayoutComponent;
+    let providerEpgOnly = false;
     let routeQueryParamMap: BehaviorSubject<
         ReturnType<typeof convertToParamMap>
     >;
@@ -130,6 +131,7 @@ describe('LiveStreamLayoutComponent', () => {
     const originalElectron = window.electron;
 
     beforeEach(async () => {
+        providerEpgOnly = false;
         currentPlaylist.set(playlist);
         jest.useFakeTimers();
         jest.setSystemTime(fixedNow);
@@ -224,6 +226,9 @@ describe('LiveStreamLayoutComponent', () => {
                         supportsDownloads: true,
                         get supportsEpg() {
                             return Boolean(window.electron);
+                        },
+                        get supportsProviderEpg() {
+                            return providerEpgOnly || Boolean(window.electron);
                         },
                         get isElectron() {
                             return Boolean(window.electron);
@@ -342,7 +347,18 @@ describe('LiveStreamLayoutComponent', () => {
 
     liveHistoryTestCases(() => ({ component, xtreamStore, portalPlayer }));
 
-    it('hides the EPG panel in browser/PWA playback', () => {
+    it('renders the live EPG panel when only provider EPG is supported', () => {
+        fixture.destroy();
+        window.electron = undefined as unknown as typeof window.electron;
+        providerEpgOnly = true;
+        fixture = TestBed.createComponent(LiveStreamLayoutComponent);
+        fixture.componentInstance.playLive(sampleChannel);
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.querySelector('.epg')).not.toBeNull();
+    });
+
+    it('hides the EPG panel when the runtime supports no EPG', () => {
         fixture.destroy();
         window.electron = undefined as unknown as typeof window.electron;
 

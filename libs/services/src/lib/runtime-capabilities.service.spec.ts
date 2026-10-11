@@ -46,6 +46,22 @@ describe('RuntimeCapabilitiesService', () => {
         expect(service.isPwa).toBe(true);
     });
 
+    it('supportsProviderEpg is true in PWA without any EPG bridge', () => {
+        testWindow.electron = undefined;
+        const service = new RuntimeCapabilitiesService();
+
+        expect(service.supportsEpg).toBe(false);
+        expect(service.supportsProviderEpg).toBe(true);
+    });
+
+    it('supportsProviderEpg follows the XMLTV bridge in Electron', () => {
+        testWindow.electron = { fetchEpg: jest.fn() };
+        const service = new RuntimeCapabilitiesService();
+
+        expect(service.supportsEpg).toBe(false);
+        expect(service.supportsProviderEpg).toBe(false);
+    });
+
     it('reports browser PWA capabilities when the Electron bridge is absent', () => {
         testWindow.electron = undefined;
 

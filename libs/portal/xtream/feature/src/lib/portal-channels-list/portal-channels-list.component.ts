@@ -138,9 +138,9 @@ export class PortalChannelsListComponent implements AfterViewInit, OnDestroy {
         viewChild.required<MatMenuTrigger>('contextMenuTrigger');
     readonly contextMenuChannel = signal<XtreamChannelListItem | null>(null);
     readonly contextMenuPosition = signal({ x: '0px', y: '0px' });
-    readonly supportsEpg = this.runtime.supportsEpg;
+    readonly supportsProviderEpg = this.runtime.supportsProviderEpg;
     readonly supportsEpgMapping = this.runtime.supportsEpgMapping;
-    readonly channelItemSize = this.supportsEpg ? 68 : 52;
+    readonly channelItemSize = this.supportsProviderEpg ? 68 : 52;
     readonly isSelectedTypeContentLoading =
         this.xtreamStore.selectedTypeContentLoading;
     readonly channels = computed(() => {
@@ -288,7 +288,7 @@ export class PortalChannelsListComponent implements AfterViewInit, OnDestroy {
         });
 
         effect(() => {
-            if (!this.supportsEpg) {
+            if (!this.supportsProviderEpg) {
                 return;
             }
 
@@ -354,7 +354,7 @@ export class PortalChannelsListComponent implements AfterViewInit, OnDestroy {
             );
         }
 
-        if (this.supportsEpg) {
+        if (this.supportsProviderEpg) {
             this.subscriptions.add(
                 this.epgQueueService.epgResult$.subscribe(
                     ({ streamId, items }) => {
@@ -384,7 +384,7 @@ export class PortalChannelsListComponent implements AfterViewInit, OnDestroy {
     ngAfterViewInit() {
         const vp = this.viewport();
         if (
-            this.supportsEpg &&
+            this.supportsProviderEpg &&
             vp &&
             this.xtreamStore.selectedContentType() === 'live'
         ) {
@@ -452,7 +452,7 @@ export class PortalChannelsListComponent implements AfterViewInit, OnDestroy {
     }
 
     private loadEpgForVisibleChannels(channels: XtreamChannelListItem[]): void {
-        if (!this.supportsEpg) {
+        if (!this.supportsProviderEpg) {
             return;
         }
 
@@ -507,7 +507,7 @@ export class PortalChannelsListComponent implements AfterViewInit, OnDestroy {
      */
     private collectEpgRefresh(): EpgRefreshContribution | null {
         const channels = this.visibleChannelsNow();
-        if (!this.supportsEpg || channels.length === 0) return null;
+        if (!this.supportsProviderEpg || channels.length === 0) return null;
 
         const playlist = this.xtreamStore.currentPlaylist();
         if (!playlist) return null;

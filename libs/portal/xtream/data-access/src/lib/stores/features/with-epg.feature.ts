@@ -111,7 +111,8 @@ export function withEpg() {
             const settingsStore = inject(SettingsStore);
             const sources = inject(EpgSourceSettingsService);
 
-            const supportsEpg = (): boolean => runtime.supportsEpg;
+            const supportsProviderEpg = (): boolean =>
+                runtime.supportsProviderEpg;
 
             /**
              * Helper to get credentials from parent store
@@ -154,7 +155,7 @@ export function withEpg() {
                  */
                 async loadEpg(): Promise<EpgItem[]> {
                     const sourceRevision = sources.revision();
-                    if (!supportsEpg()) {
+                    if (!supportsProviderEpg()) {
                         patchState(store, {
                             epgItems: [],
                             isLoadingEpg: false,
@@ -233,7 +234,7 @@ export function withEpg() {
                     streamId: number,
                     epgChannelId?: string | null
                 ): Promise<EpgItem[]> {
-                    if (!supportsEpg()) {
+                    if (!supportsProviderEpg()) {
                         return [];
                     }
 
