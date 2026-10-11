@@ -30,6 +30,22 @@ describe('RuntimeCapabilitiesService', () => {
         expect(service.supportsParentalLockSqliteFilter).toBe(false);
     });
 
+    it('isNativeShell is true only when Capacitor reports a native platform', () => {
+        const capacitorWindow = window as unknown as {
+            Capacitor?: { isNativePlatform?: () => boolean };
+        };
+        testWindow.electron = undefined;
+        const service = new RuntimeCapabilitiesService();
+
+        capacitorWindow.Capacitor = { isNativePlatform: () => true };
+        expect(service.isNativeShell).toBe(true);
+        capacitorWindow.Capacitor = { isNativePlatform: () => false };
+        expect(service.isNativeShell).toBe(false);
+        delete capacitorWindow.Capacitor;
+        expect(service.isNativeShell).toBe(false);
+        expect(service.isPwa).toBe(true);
+    });
+
     it('reports browser PWA capabilities when the Electron bridge is absent', () => {
         testWindow.electron = undefined;
 

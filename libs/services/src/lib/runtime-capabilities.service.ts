@@ -5,6 +5,10 @@ export type RuntimeEnvironment = 'electron' | 'pwa';
 
 type RuntimeElectronBridge = Partial<ElectronBridgeApi>;
 
+type RuntimeShellWindow = Window & {
+    Capacitor?: { isNativePlatform?: () => boolean };
+};
+
 // Ordinary playback methods include season batches, so partial bridges use
 // the in-memory path instead of throwing mid-action. Atomic backup restore is
 // checked separately by a restore-only preflight; it never changes data-source
@@ -33,6 +37,19 @@ export class RuntimeCapabilitiesService {
 
     get isPwa(): boolean {
         return !this.isElectron;
+    }
+
+    /**
+     * Running inside a native app shell (Capacitor). The shell is still a
+     * PWA runtime (`isPwa`); only the transport and platform services differ.
+     */
+    get isNativeShell(): boolean {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        const capacitor = (window as RuntimeShellWindow).Capacitor;
+        return capacitor?.isNativePlatform?.() === true;
     }
 
     get platform(): string | undefined {

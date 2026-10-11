@@ -22,17 +22,22 @@ export function getRuntimeBackendUrl(): string {
 export interface ServiceWorkerRuntimeContext {
     readonly electronBridge?: unknown;
     readonly protocol?: string;
+    readonly nativeShell?: boolean;
 }
 
 function getDefaultServiceWorkerRuntimeContext(): ServiceWorkerRuntimeContext {
     const browserWindow = globalThis.window as
-        | (Window & { electron?: unknown })
+        | (Window & {
+              electron?: unknown;
+              Capacitor?: { isNativePlatform?: () => boolean };
+          })
         | undefined;
 
     return {
         electronBridge: browserWindow?.electron,
         protocol:
             browserWindow?.location?.protocol ?? globalThis.location?.protocol,
+        nativeShell: browserWindow?.Capacitor?.isNativePlatform?.() === true,
     };
 }
 
@@ -46,6 +51,7 @@ export function shouldEnableServiceWorker(
         !!navigatorRef &&
         'serviceWorker' in navigatorRef &&
         !runtimeContext.electronBridge &&
-        runtimeContext.protocol !== 'file:'
+        runtimeContext.protocol !== 'file:' &&
+        !runtimeContext.nativeShell
     );
 }

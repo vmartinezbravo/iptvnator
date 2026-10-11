@@ -63,6 +63,19 @@ describe('runtime config helpers', () => {
         ).toBe(false);
     });
 
+    it('never enables the service worker inside a native shell', () => {
+        expect(
+            shouldEnableServiceWorker(
+                true,
+                { serviceWorker: {} } as Navigator,
+                {
+                    protocol: 'http:',
+                    nativeShell: true,
+                }
+            )
+        ).toBe(false);
+    });
+
     it('disables service worker for file origins without an Electron bridge', () => {
         expect(
             shouldEnableServiceWorker(
