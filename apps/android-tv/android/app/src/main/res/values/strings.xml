@@ -4,4 +4,7 @@
     <string name="title_activity_main">IPTVnator</string>
     <string name="package_name">com.victor.iptvnator</string>
     <string name="custom_url_scheme">com.victor.iptvnator</string>
+    <string name="webview_too_old">Your Android System WebView (version %1$s) is too old. Update it from the app store.</string>
+    <string name="webview_too_old_exit">Exit</string>
 </resources>
+
