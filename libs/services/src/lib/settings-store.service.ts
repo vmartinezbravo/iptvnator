@@ -39,10 +39,12 @@ import {
 
 import {
     DEFAULT_SETTINGS,
+    resolveRuntimePlayer,
     scheduleEmbeddedMpvPrepare,
     SettingsStorageState,
     verifySavedEmbeddedMpvPlayer,
 } from './settings-store.defaults';
+import { RuntimeCapabilitiesService } from './runtime-capabilities.service';
 
 export type { SettingsStorageFailure } from './settings-store.defaults';
 
@@ -65,6 +67,7 @@ export const SettingsStore = signalStore(
     })),
     withMethods((store, storage = inject(StorageMap)) => {
         const epgSources = inject(EpgSourceSettingsService);
+        const runtime = inject(RuntimeCapabilitiesService);
         let settingsLoadPromise: Promise<void> | undefined;
 
         return {
@@ -83,6 +86,10 @@ export const SettingsStore = signalStore(
                         patchState(store, {
                             ...DEFAULT_SETTINGS,
                             ...storedSettings,
+                            player: resolveRuntimePlayer(
+                                storedSettings.player,
+                                runtime.isNativeShell
+                            ),
                             epgOffsetMinutes: normalizeEpgOffsetMinutes(
                                 storedSettings.epgOffsetMinutes
                             ),
@@ -105,6 +112,13 @@ export const SettingsStore = signalStore(
                                 );
                             }
                         );
+                    } else {
+                        patchState(store, {
+                            player: resolveRuntimePlayer(
+                                undefined,
+                                runtime.isNativeShell
+                            ),
+                        });
                     }
                     await epgSources
                         .synchronize(this.getSettings().epgUrl)

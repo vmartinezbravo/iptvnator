@@ -12,6 +12,7 @@ import {
     Theme,
     VideoPlayer,
 } from '@iptvnator/shared/interfaces';
+import { RuntimeCapabilitiesService } from './runtime-capabilities.service';
 import { SettingsStore } from './settings-store.service';
 
 const expectedDashboardRails = (
@@ -48,6 +49,7 @@ describe('SettingsStore dashboard rail settings', () => {
             providers: [
                 SettingsStore,
                 EpgSourceSettingsService,
+                RuntimeCapabilitiesService,
                 {
                     provide: StorageMap,
                     useValue: storage,
@@ -611,6 +613,7 @@ describe('SettingsStore storage failure reporting', () => {
             providers: [
                 SettingsStore,
                 EpgSourceSettingsService,
+                RuntimeCapabilitiesService,
                 {
                     provide: StorageMap,
                     useValue: storage,
@@ -695,5 +698,49 @@ describe('SettingsStore storage failure reporting', () => {
 
         expect(store.storageFailure()).toBeNull();
         expect(store.getSettings().language).toBe(Language.FRENCH);
+    });
+});
+
+describe('SettingsStore runtime player', () => {
+    function loadWith(
+        stored: Partial<Settings> | null,
+        isNativeShell: boolean
+    ): SettingsStore {
+        const injector = Injector.create({
+            providers: [
+                SettingsStore,
+                EpgSourceSettingsService,
+                {
+                    provide: StorageMap,
+                    useValue: {
+                        get: jest.fn(() => of(stored)),
+                        set: jest.fn(() => of(undefined)),
+                    },
+                },
+                {
+                    provide: RuntimeCapabilitiesService,
+                    useValue: { isNativeShell },
+                },
+            ],
+        });
+        return injector.get(SettingsStore);
+    }
+
+    it('coerces stored non-HTML5 player on native shell', async () => {
+        const store = loadWith({ player: VideoPlayer.VideoJs }, true);
+        await store.loadSettings();
+        expect(store.player()).toBe(VideoPlayer.Html5Player);
+    });
+
+    it('uses the HTML5 player on native shell when nothing is stored', async () => {
+        const store = loadWith(null, true);
+        await store.loadSettings();
+        expect(store.player()).toBe(VideoPlayer.Html5Player);
+    });
+
+    it('keeps the stored player outside a native shell', async () => {
+        const store = loadWith({ player: VideoPlayer.ArtPlayer }, false);
+        await store.loadSettings();
+        expect(store.player()).toBe(VideoPlayer.ArtPlayer);
     });
 });

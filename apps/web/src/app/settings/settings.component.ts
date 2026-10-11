@@ -181,6 +181,7 @@ export class SettingsComponent
         buildSettingsPlayerOptions({
             supportsEmbeddedMpv: this.embeddedMpv.supported(),
             supportsManagedExternalPlayers: this.supportsManagedExternalPlayers,
+            isNativeShell: this.runtime.isNativeShell,
         })
     );
 

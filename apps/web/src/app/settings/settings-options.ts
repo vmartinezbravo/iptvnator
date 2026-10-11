@@ -135,16 +135,25 @@ export const SETTINGS_EMBEDDED_PLAYER_OPTIONS: SettingsPlayerOption[] = [
 export interface SettingsPlayerAvailability {
     supportsEmbeddedMpv: boolean;
     supportsManagedExternalPlayers: boolean;
+    isNativeShell: boolean;
 }
 
 /**
  * Built-in web players are always offered; the OS-backed ones only show up
- * when the current runtime can actually launch them.
+ * when the current runtime can actually launch them. A native app shell
+ * plays through HTML5 only.
  */
 export function buildSettingsPlayerOptions({
     supportsEmbeddedMpv,
     supportsManagedExternalPlayers,
+    isNativeShell,
 }: SettingsPlayerAvailability): SettingsPlayerOption[] {
+    if (isNativeShell) {
+        return SETTINGS_EMBEDDED_PLAYER_OPTIONS.filter(
+            (option) => option.id === VideoPlayer.Html5Player
+        );
+    }
+
     return [
         ...SETTINGS_EMBEDDED_PLAYER_OPTIONS,
         ...(supportsEmbeddedMpv

@@ -1,7 +1,11 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-import { buildSettingsSectionNavItems } from './settings-options';
+import { VideoPlayer } from '@iptvnator/shared/interfaces';
+import {
+    buildSettingsPlayerOptions,
+    buildSettingsSectionNavItems,
+} from './settings-options';
 
 /**
  * Every nav-item id must match a `@case ('...')` label in the settings page
@@ -113,5 +117,31 @@ describe('buildSettingsSectionNavItems', () => {
         expect(groupOf('remote-control')).toBe('devices');
         expect(groupOf('backup')).toBe('data');
         expect(groupOf('about')).toBeUndefined();
+    });
+});
+
+describe('buildSettingsPlayerOptions', () => {
+    it('offers only the HTML5 player in a native shell', () => {
+        expect(
+            buildSettingsPlayerOptions({
+                supportsEmbeddedMpv: false,
+                supportsManagedExternalPlayers: false,
+                isNativeShell: true,
+            }).map((option) => option.id)
+        ).toEqual([VideoPlayer.Html5Player]);
+    });
+
+    it('keeps every built-in web player outside a native shell', () => {
+        expect(
+            buildSettingsPlayerOptions({
+                supportsEmbeddedMpv: false,
+                supportsManagedExternalPlayers: false,
+                isNativeShell: false,
+            }).map((option) => option.id)
+        ).toEqual([
+            VideoPlayer.Html5Player,
+            VideoPlayer.VideoJs,
+            VideoPlayer.ArtPlayer,
+        ]);
     });
 });

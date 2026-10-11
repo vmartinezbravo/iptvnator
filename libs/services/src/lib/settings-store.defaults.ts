@@ -62,6 +62,21 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /**
+ * The player this runtime may use: a native app shell plays through HTML5
+ * only, whatever was stored or restored from a desktop backup.
+ */
+export function resolveRuntimePlayer(
+    player: VideoPlayer | undefined,
+    isNativeShell: boolean
+): VideoPlayer {
+    if (isNativeShell) {
+        return VideoPlayer.Html5Player;
+    }
+
+    return player ?? DEFAULT_SETTINGS.player;
+}
+
+/**
  * Which half of the settings persistence round-trip failed, if any.
  *
  * Settings live in the renderer's IndexedDB, which can be unavailable for
