@@ -388,7 +388,10 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            # The Android fork's CLAUDE.md intentionally exceeds the
+            # 30-line / 2 KiB guidance limit, so only upstream validates it.
             - name: Validate agent guidance
+              if: github.repository == '4gray/iptvnator'
               run: pnpm run agents:validate
 
             - name: Validate Nx dependency version policy
