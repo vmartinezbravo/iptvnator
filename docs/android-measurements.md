@@ -22,7 +22,7 @@ recorte.
 | Desarrollo               | `pnpm run serve:frontend` (configuración `development`: sin optimizar, con source maps y devtools de NgRx)                            |
 | Producción               | `dist/apps/web-android` (`pnpm nx build web --configuration=android`), servido estático en `localhost:4300`                           |
 | Bundle inicial `android` | 1,59 MB sin comprimir / ~347 kB estimados en transferencia; `dist/apps/web-android` ocupa 16 MB                                       |
-| Script                   | `.superpowers/sdd/PLAN-ANDROID/perf/perf-baseline.mjs` (fuera del código de la app; no guarda credenciales)                           |
+| Script                   | `tools/android/perf-baseline.mjs` (no toca el código de la app ni guarda credenciales; uso en su cabecera)                            |
 
 Definiciones:
 
