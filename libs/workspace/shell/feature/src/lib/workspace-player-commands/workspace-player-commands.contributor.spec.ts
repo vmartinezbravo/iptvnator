@@ -49,6 +49,7 @@ describe('WorkspacePlayerCommandsContributor', () => {
     let runtime: {
         supportsManagedExternalPlayers: boolean;
         supportsEmbeddedMpv: boolean;
+        isNativeShell: boolean;
     };
     let electronStub:
         | {
@@ -63,6 +64,7 @@ describe('WorkspacePlayerCommandsContributor', () => {
     function bootstrap(options: {
         supportsManagedExternalPlayers: boolean;
         supportsEmbeddedMpv?: boolean;
+        isNativeShell?: boolean;
         embeddedMpvSupportResult?: {
             supported: boolean;
             inconclusive?: boolean;
@@ -81,6 +83,7 @@ describe('WorkspacePlayerCommandsContributor', () => {
             supportsManagedExternalPlayers:
                 options.supportsManagedExternalPlayers,
             supportsEmbeddedMpv: options.supportsEmbeddedMpv ?? false,
+            isNativeShell: options.isNativeShell ?? false,
         };
 
         electronStub = runtime.supportsEmbeddedMpv
@@ -150,6 +153,18 @@ describe('WorkspacePlayerCommandsContributor', () => {
         expect(visibilityById['switch-player-artplayer']).toBe(true);
         expect(visibilityById['switch-player-mpv']).toBe(false);
         expect(visibilityById['switch-player-vlc']).toBe(false);
+    });
+
+    it('offers only the HTML5 player command in a native shell', () => {
+        bootstrap({
+            supportsManagedExternalPlayers: false,
+            isNativeShell: true,
+        });
+
+        const visibleIds = getRegistered(viewCommands)
+            .filter((c) => resolveBoolean(c.visible))
+            .map((c) => c.id);
+        expect(visibleIds).toEqual(['switch-player-html5']);
     });
 
     it('hides embedded MPV when it is unsupported', () => {

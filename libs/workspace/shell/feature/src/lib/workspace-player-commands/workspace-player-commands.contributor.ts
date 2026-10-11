@@ -8,7 +8,8 @@ import {
 import { RuntimeCapabilitiesService, SettingsStore } from '@iptvnator/services';
 import { VideoPlayer } from '@iptvnator/shared/interfaces';
 
-type PlayerCommandRequirement = 'none' | 'managed-external' | 'embedded-mpv';
+type PlayerCommandRequirement =
+    'none' | 'web-player' | 'managed-external' | 'embedded-mpv';
 
 interface PlayerCommandDefinition {
     id: string;
@@ -27,7 +28,7 @@ const PLAYER_COMMAND_DEFS: readonly PlayerCommandDefinition[] = [
         icon: 'play_circle',
         nameKey: 'SETTINGS.PLAYER_VIDEOJS',
         keywords: ['player', 'videojs', 'video.js'],
-        requires: 'none',
+        requires: 'web-player',
         priority: 90,
     },
     {
@@ -45,7 +46,7 @@ const PLAYER_COMMAND_DEFS: readonly PlayerCommandDefinition[] = [
         icon: 'play_circle',
         nameKey: 'SETTINGS.PLAYER_ARTPLAYER',
         keywords: ['player', 'artplayer', 'art'],
-        requires: 'none',
+        requires: 'web-player',
         priority: 92,
     },
     {
@@ -165,6 +166,9 @@ export class WorkspacePlayerCommandsContributor {
 
     private isVisible(def: PlayerCommandDefinition): boolean {
         switch (def.requires) {
+            case 'web-player':
+                // A native app shell plays through HTML5 only.
+                return !this.runtime.isNativeShell;
             case 'managed-external':
                 return this.runtime.supportsManagedExternalPlayers;
             case 'embedded-mpv':

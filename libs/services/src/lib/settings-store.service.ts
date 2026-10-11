@@ -148,6 +148,14 @@ export const SettingsStore = signalStore(
                 patchState(store, {
                     ...settings,
                     ...coerceProvidedDefaultOnSettings(settings),
+                    ...(settings.player !== undefined
+                        ? {
+                              player: resolveRuntimePlayer(
+                                  settings.player,
+                                  runtime.isNativeShell
+                              ),
+                          }
+                        : {}),
                     ...(settings.dashboardRails !== undefined
                         ? {
                               dashboardRails: normalizeDashboardRailsSettings(
@@ -351,9 +359,20 @@ export const SettingsStore = signalStore(
             },
         };
     }),
-    withHooks({
-        onInit(store) {
-            store.loadSettings();
-        },
+    withHooks((store) => {
+        const runtime = inject(RuntimeCapabilitiesService);
+        return {
+            onInit() {
+                // Before the stored settings arrive (or if they never do),
+                // the native shell must already be on its only player.
+                patchState(store, {
+                    player: resolveRuntimePlayer(
+                        store.player(),
+                        runtime.isNativeShell
+                    ),
+                });
+                store.loadSettings();
+            },
+        };
     })
 );

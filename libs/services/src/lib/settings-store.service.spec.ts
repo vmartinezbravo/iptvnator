@@ -702,20 +702,25 @@ describe('SettingsStore storage failure reporting', () => {
 });
 
 describe('SettingsStore runtime player', () => {
+    let storage: { get: jest.Mock; set: jest.Mock };
+
     function loadWith(
-        stored: Partial<Settings> | null,
+        stored: Partial<Settings> | null | Subject<Partial<Settings> | null>,
         isNativeShell: boolean
     ): SettingsStore {
+        storage = {
+            get: jest.fn(() =>
+                stored instanceof Subject ? stored : of(stored)
+            ),
+            set: jest.fn(() => of(undefined)),
+        };
         const injector = Injector.create({
             providers: [
                 SettingsStore,
                 EpgSourceSettingsService,
                 {
                     provide: StorageMap,
-                    useValue: {
-                        get: jest.fn(() => of(stored)),
-                        set: jest.fn(() => of(undefined)),
-                    },
+                    useValue: storage,
                 },
                 {
                     provide: RuntimeCapabilitiesService,
@@ -736,6 +741,44 @@ describe('SettingsStore runtime player', () => {
         const store = loadWith(null, true);
         await store.loadSettings();
         expect(store.player()).toBe(VideoPlayer.Html5Player);
+    });
+
+    it('starts with the HTML5 player on native shell before settings load', () => {
+        const pending = new Subject<Partial<Settings> | null>();
+        const store = loadWith(pending, true);
+        expect(store.player()).toBe(VideoPlayer.Html5Player);
+    });
+
+    it('keeps the HTML5 player on native shell when settings fail to load', async () => {
+        const failing = new Subject<Partial<Settings> | null>();
+        const consoleError = jest
+            .spyOn(console, 'error')
+            .mockImplementation(() => undefined);
+        const store = loadWith(failing, true);
+        const load = store.loadSettings();
+        failing.error(new Error('storage unavailable'));
+        await load;
+        consoleError.mockRestore();
+        expect(store.storageFailure()).toBe('load');
+        expect(store.player()).toBe(VideoPlayer.Html5Player);
+    });
+
+    it('keeps the HTML5 player when updateSettings asks for Video.js on native shell', async () => {
+        const store = loadWith(null, true);
+        await store.loadSettings();
+        await store.updateSettings({ player: VideoPlayer.VideoJs });
+        expect(store.player()).toBe(VideoPlayer.Html5Player);
+        expect(storage.set).toHaveBeenLastCalledWith(
+            STORE_KEY.Settings,
+            expect.objectContaining({ player: VideoPlayer.Html5Player })
+        );
+    });
+
+    it('lets updateSettings change the player outside a native shell', async () => {
+        const store = loadWith(null, false);
+        await store.loadSettings();
+        await store.updateSettings({ player: VideoPlayer.ArtPlayer });
+        expect(store.player()).toBe(VideoPlayer.ArtPlayer);
     });
 
     it('keeps the stored player outside a native shell', async () => {
