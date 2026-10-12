@@ -32,6 +32,7 @@ public class NativePlayerPlugin extends Plugin {
 
     @Override
     public void load() {
+        NativePlayerLaunch.silenceMedia3Logs();
         NativePlayerEvents.attach(this);
     }
 

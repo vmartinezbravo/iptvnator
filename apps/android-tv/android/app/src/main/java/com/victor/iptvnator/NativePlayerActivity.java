@@ -75,8 +75,13 @@ public class NativePlayerActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_native_player);
+        NativePlayerLaunch.silenceMedia3Logs();
         Intent intent = getIntent();
+        if (!NativePlayerLaunch.shouldPlay(savedInstanceState != null, intent.getFlags())) {
+            finish();
+            return;
+        }
+        setContentView(R.layout.activity_native_player);
         urls = intent.getStringArrayListExtra(NativePlayerPlugin.EXTRA_URLS);
         if (urls == null || urls.isEmpty()) {
             finish();
@@ -145,7 +150,9 @@ public class NativePlayerActivity extends AppCompatActivity {
             @Override
             public void handleOnBackPressed() {
                 // Fire OS calls onStop 1-3 s after Back; report the close now.
-                close(player.getCurrentPosition());
+                if (player != null) {
+                    close(player.getCurrentPosition());
+                }
                 finish();
             }
         });
