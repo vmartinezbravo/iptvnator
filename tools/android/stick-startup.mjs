@@ -9,6 +9,9 @@
 // the WebView renderer (`sandboxed_process`). Needs a source already added in
 // the app; it never reads or prints credentials.
 //
+// After Live is ready it also presses D-pad Down on the channel list until the
+// movies and series import ends, to measure jank (see browseWhileImporting).
+//
 // Usage: node tools/android/stick-startup.mjs [runs=3] [serial]
 // Output: dist/performance/android-stick/<timestamp>.json and a summary.
 import { execFileSync } from 'node:child_process';
@@ -69,23 +72,21 @@ async function connectPage() {
         pending.get(msg.id)?.(msg);
         pending.delete(msg.id);
     };
-    const evaluate = (expression) =>
+    const send = (method, params = {}) =>
         new Promise((resolve) => {
             const msgId = ++id;
-            pending.set(msgId, (msg) => resolve(msg.result?.result?.value));
-            ws.send(
-                JSON.stringify({
-                    id: msgId,
-                    method: 'Runtime.evaluate',
-                    params: {
-                        expression,
-                        returnByValue: true,
-                        awaitPromise: true,
-                    },
-                })
-            );
+            pending.set(msgId, resolve);
+            ws.send(JSON.stringify({ id: msgId, method, params }));
         });
-    return { pid, evaluate, close: () => ws.close() };
+    const evaluate = async (expression) =>
+        (
+            await send('Runtime.evaluate', {
+                expression,
+                returnByValue: true,
+                awaitPromise: true,
+            })
+        ).result?.result?.value;
+    return { pid, send, evaluate, close: () => ws.close() };
 }
 
 // In-app navigation: Angular's router follows popstate, so no page reload.
@@ -195,10 +196,14 @@ async function run(index) {
     );
     await waitFor(
         'live-list-ready',
-        async () => adb('logcat', '-d').includes('[perf] live-list-ready'),
+        () =>
+            page.evaluate(
+                "performance.getEntriesByName('iptvnator:live-list-ready').length > 0"
+            ),
         120_000,
         250
     );
+    const jank = await browseWhileImporting(page);
     await sleep(SETTLE_MS);
     const times = readTimes();
     const renderer = adb('shell', 'ps', '-A')
@@ -208,6 +213,7 @@ async function run(index) {
         run: index,
         amStartTotalTimeMs: Number(amStart.match(/TotalTime: (\d+)/)?.[1]),
         ...times,
+        jank,
         appAlive: adb('shell', 'pidof', PKG).trim() === page.pid,
         appPssKb: pssKb(PKG),
         rendererPssKb: renderer ? pssKb(renderer.trim().split(/\s+/)[1]) : null,
@@ -217,9 +223,85 @@ async function run(index) {
     };
     page.close();
     console.log(
-        JSON.stringify({ ...result, requests: result.requests.length })
+        JSON.stringify({
+            ...result,
+            requests: result.requests.length,
+            jank: undefined,
+        })
     );
+    console.log(JSON.stringify({ jank: result.jank }));
     return result;
+}
+
+// Jank while the rest of the catalogue imports: D-pad Down on the channel
+// list every 300 ms (CDP Input.dispatchKeyEvent, the browser input path) until
+// get_series has answered and 5 s more. Records how long each key took to be
+// handled, long tasks and frame gaps.
+const JANK_PROBE = `(() => {
+    const j = (window.__jank = { longTasks: [], gaps: [], seriesDoneAt: null });
+    new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) j.longTasks.push(Math.round(e.duration));
+    }).observe({ type: 'longtask' });
+    let last = performance.now();
+    const frame = (t) => {
+        if (t - last > 50) j.gaps.push(Math.round(t - last));
+        last = t;
+        if (!j.stop) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    const group = console.groupCollapsed;
+    console.groupCollapsed = (...args) => {
+        if (/get_series (response|error)/.test(String(args[0]))) j.seriesDoneAt = performance.now();
+        return group.apply(console, args);
+    };
+    document.querySelector('cdk-virtual-scroll-viewport')?.focus();
+    return true;
+})()`;
+
+async function pressDown(page) {
+    const key = {
+        key: 'ArrowDown',
+        code: 'ArrowDown',
+        windowsVirtualKeyCode: 40,
+    };
+    const t = Date.now();
+    await page.send('Input.dispatchKeyEvent', { type: 'keyDown', ...key });
+    await page.send('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+    return Date.now() - t;
+}
+
+async function browseWhileImporting(page) {
+    await page.evaluate(JANK_PROBE);
+    const keyMs = [];
+    const end = Date.now() + 120_000;
+    let doneAt = null;
+    while (Date.now() < end) {
+        keyMs.push(await pressDown(page));
+        await sleep(300);
+        if (
+            !doneAt &&
+            (await page.evaluate('window.__jank.seriesDoneAt !== null'))
+        )
+            doneAt = Date.now();
+        if (doneAt && Date.now() - doneAt > 5000) break;
+    }
+    const probe = await page.evaluate(
+        '(() => { window.__jank.stop = true; return window.__jank; })()'
+    );
+    const sorted = [...keyMs].sort((a, b) => a - b);
+    const pct = (p) =>
+        sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+    return {
+        seriesFinished: doneAt !== null,
+        keys: keyMs.length,
+        keyHandledMs: { median: pct(0.5), p90: pct(0.9), max: sorted.at(-1) },
+        keysOver250Ms: keyMs.filter((ms) => ms > 250).length,
+        longTasks: probe.longTasks.length,
+        longTaskMaxMs: Math.max(0, ...probe.longTasks),
+        longTasksOver500Ms: probe.longTasks.filter((d) => d > 500).length,
+        frameGapsOver100Ms: probe.gaps.filter((g) => g > 100).length,
+        frameGapMaxMs: Math.max(0, ...probe.gaps),
+    };
 }
 
 const median = (xs) => {
