@@ -40,9 +40,17 @@ describe('VodDetailsMenuService', () => {
     >([]);
     const resetPending = computed(() => pendingResets().length > 0);
     const openExternal = jest.fn().mockResolvedValue(undefined);
+    let runtime: {
+        supportsManagedExternalPlayers: boolean;
+        supportsNativeExternalPlayer: boolean;
+    };
     let service: VodDetailsMenuService;
 
     beforeEach(() => {
+        runtime = {
+            supportsManagedExternalPlayers: true,
+            supportsNativeExternalPlayer: false,
+        };
         playbackStartPending.set(false);
         isExternalLaunchPending.set(false);
         primaryPosition.set(null);
@@ -100,10 +108,7 @@ describe('VodDetailsMenuService', () => {
                     provide: PORTAL_PLAYBACK_POSITIONS,
                     useValue: { clearPlaybackPositionOrThrow },
                 },
-                {
-                    provide: RuntimeCapabilitiesService,
-                    useValue: { supportsManagedExternalPlayers: true },
-                },
+                { provide: RuntimeCapabilitiesService, useValue: runtime },
                 {
                     provide: SettingsStore,
                     useValue: { player: signal(VideoPlayer.MPV) },
@@ -136,6 +141,15 @@ describe('VodDetailsMenuService', () => {
     it('offers the external player and Start over rows while nothing starts', () => {
         expect(row(VOD_MENU_ACTION.ExternalPlayer)?.disabled).toBeFalsy();
         expect(row(VOD_MENU_ACTION.StartOver)?.disabled).toBeFalsy();
+    });
+
+    it('offers VLC as the external player on a native shell', async () => {
+        runtime.supportsManagedExternalPlayers = false;
+        runtime.supportsNativeExternalPlayer = true;
+
+        expect(row(VOD_MENU_ACTION.ExternalPlayer)?.hint).toBe('VLC');
+        await service.run(VOD_MENU_ACTION.ExternalPlayer);
+        expect(openExternal).toHaveBeenCalledWith('vlc');
     });
 
     it('hands the external launch to the host with the configured player', async () => {

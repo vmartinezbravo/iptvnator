@@ -22,6 +22,7 @@ export function createWebPlayerRecommendations(options: {
     readonly attemptedTargets: ReadonlySet<PlaybackRecommendationTarget>;
     readonly externalStates: ExternalRecoveryStates;
     readonly managedExternalPlayersAvailable: boolean;
+    readonly nativeExternalPlayerAvailable?: boolean;
     readonly playbackExternallyTransferable: boolean;
     readonly isLive: boolean;
     readonly alternativeSourceCount: number;
@@ -43,6 +44,8 @@ export function createWebPlayerRecommendations(options: {
             sourceKind,
             managedExternalPlayersAvailable:
                 options.managedExternalPlayersAvailable,
+            nativeExternalPlayerAvailable:
+                options.nativeExternalPlayerAvailable,
         }),
         source: {
             kind: sourceKind,
@@ -166,7 +169,10 @@ function rerankExternalRecommendations(
 
 function isExternalRecommendation(
     recommendation: PlaybackRecommendation
-): recommendation is Extract<PlaybackRecommendation, { readonly action: 'player' }> & {
+): recommendation is Extract<
+    PlaybackRecommendation,
+    { readonly action: 'player' }
+> & {
     readonly target: ExternalPlayerName;
 } {
     return (

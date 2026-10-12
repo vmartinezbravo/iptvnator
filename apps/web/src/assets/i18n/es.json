@@ -1359,6 +1359,7 @@
         "NOW_PLAYING": "Reproduciendo ahora",
         "UP_NEXT": "A continuación",
         "CLOSE_PLAYER": "Cerrar reproductor",
+        "EXTERNAL_PLAYER_NOT_INSTALLED": "Instala VLC desde la tienda de apps para abrir este stream",
         "ABOUT": "Acerca de",
         "SEASONS_AND_EPISODES": "Temporadas y episodios",
         "SEASON_TAB": "Temporada {{number}}",

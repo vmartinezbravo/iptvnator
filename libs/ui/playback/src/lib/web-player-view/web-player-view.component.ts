@@ -261,6 +261,8 @@ export class WebPlayerViewComponent implements OnDestroy {
         alternativeSourceCount: () => this.alternativeSources().length,
         managedExternalPlayersAvailable: () =>
             this.runtime.supportsManagedExternalPlayers,
+        nativeExternalPlayerAvailable: () =>
+            this.runtime.supportsNativeExternalPlayer,
         tryAutoLiveFormat: (issue) => this.liveAutoFormat.tryFallback(issue),
         emitPlaybackFailed: (code) => this.playbackFailed.emit(code),
         emitExternalFallbackRequested: (request) =>
@@ -285,8 +287,12 @@ export class WebPlayerViewComponent implements OnDestroy {
     readonly recordingFolder = computed(
         () => this.settingsStore.recordingFolder?.() ?? ''
     );
+    /** Any external player the diagnostic copy may point to (incl. native VLC). */
     get supportsManagedExternalPlayers(): boolean {
-        return this.runtime.supportsManagedExternalPlayers;
+        return (
+            this.runtime.supportsManagedExternalPlayers ||
+            this.runtime.supportsNativeExternalPlayer === true
+        );
     }
     readonly renderedApplications = computed<
         readonly PlaybackApplicationOwnership[]

@@ -33,13 +33,18 @@ function recommendations(options: {
     attemptedTargets?: ReadonlySet<PlaybackRecommendationTarget>;
     diagnostic?: PlaybackDiagnostic;
     externalStates?: ExternalRecoveryStates;
+    managedExternalPlayersAvailable?: boolean;
+    nativeExternalPlayerAvailable?: boolean;
 }) {
     return createWebPlayerRecommendations({
         diagnostic: options.diagnostic ?? DIAGNOSTIC,
         binding: { generation: 1, target: InlinePlaybackPlayer.VideoJs },
         attemptedTargets: options.attemptedTargets ?? new Set(),
         externalStates: options.externalStates ?? externalStates(),
-        managedExternalPlayersAvailable: true,
+        managedExternalPlayersAvailable:
+            options.managedExternalPlayersAvailable ?? true,
+        nativeExternalPlayerAvailable:
+            options.nativeExternalPlayerAvailable ?? false,
         playbackExternallyTransferable: true,
         isLive: false,
         alternativeSourceCount: 1,
@@ -55,6 +60,20 @@ function targets(
 }
 
 describe('createWebPlayerRecommendations external outcomes', () => {
+    it('diagnostic view offers "Abrir en VLC" when supportsNativeExternalPlayer', () => {
+        const native = recommendations({
+            managedExternalPlayersAvailable: false,
+            nativeExternalPlayerAvailable: true,
+        });
+        const neither = recommendations({
+            managedExternalPlayersAvailable: false,
+        });
+
+        expect(targets(native)).toContain('vlc');
+        expect(targets(native)).not.toContain('mpv');
+        expect(targets(neither)).not.toContain('vlc');
+    });
+
     it('keeps an attempted failed external target and promotes its untried sibling', () => {
         const result = recommendations({
             attemptedTargets: new Set(['mpv']),

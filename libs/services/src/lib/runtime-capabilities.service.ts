@@ -343,6 +343,11 @@ export class RuntimeCapabilitiesService {
         );
     }
 
+    /** Native shell: streams open in a device player app (VLC) via the OS. */
+    get supportsNativeExternalPlayer(): boolean {
+        return this.isNativeShell;
+    }
+
     get supportsExternalPlayerPathSettings(): boolean {
         return ['setMpvPlayerPath', 'setVlcPlayerPath'].every((methodName) =>
             this.hasElectronMethod(methodName)

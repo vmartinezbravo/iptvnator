@@ -85,7 +85,10 @@ export class SerialDetailsMenuService {
     }
 
     readonly externalPlayer = computed<ExternalPlayerName>(() =>
-        this.settingsStore.player() === VideoPlayer.VLC ? 'vlc' : 'mpv'
+        this.runtime.supportsNativeExternalPlayer ||
+        this.settingsStore.player() === VideoPlayer.VLC
+            ? 'vlc'
+            : 'mpv'
     );
 
     private readonly seriesId = computed(() =>
@@ -190,7 +193,9 @@ export class SerialDetailsMenuService {
             watchBatchRunning: container?.seasonWatchBatchRunning() ?? false,
             sourcesCount: 0,
             externalPlayerHint:
-                quickStart && this.runtime.supportsManagedExternalPlayers
+                quickStart &&
+                (this.runtime.supportsManagedExternalPlayers ||
+                    this.runtime.supportsNativeExternalPlayer)
                     ? this.externalPlayer() === 'vlc'
                         ? 'VLC'
                         : 'MPV'

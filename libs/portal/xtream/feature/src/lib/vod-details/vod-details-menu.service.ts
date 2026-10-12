@@ -63,9 +63,12 @@ export class VodDetailsMenuService {
         this.bindings.set(bindings);
     }
 
-    /** MPV or VLC: the configured one, otherwise MPV. */
+    /** MPV or VLC: the configured one, otherwise MPV; VLC on Android. */
     readonly externalPlayer = computed<ExternalPlayerName>(() =>
-        this.settingsStore.player() === VideoPlayer.VLC ? 'vlc' : 'mpv'
+        this.runtime.supportsNativeExternalPlayer ||
+        this.settingsStore.player() === VideoPlayer.VLC
+            ? 'vlc'
+            : 'mpv'
     );
 
     readonly sections = computed<VodMoreMenuSection[]>(() => {
@@ -90,7 +93,11 @@ export class VodDetailsMenuService {
                 testId: 'vod-menu-sources',
             });
         }
-        if (item && this.runtime.supportsManagedExternalPlayers) {
+        if (
+            item &&
+            (this.runtime.supportsManagedExternalPlayers ||
+                this.runtime.supportsNativeExternalPlayer)
+        ) {
             sourceRows.push({
                 id: VOD_MENU_ACTION.ExternalPlayer,
                 labelKey: 'PORTALS.DETAIL.OPEN_IN_EXTERNAL_PLAYER',

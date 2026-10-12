@@ -10,6 +10,8 @@ import { DataService, PlaylistsService } from '@iptvnator/services';
 import {
     CONNECTIVITY_GUARD_RESET,
     ERROR,
+    OPEN_MPV_PLAYER,
+    OPEN_VLC_PLAYER,
     STALKER_REQUEST,
     XTREAM_PREFETCH_LIVE_CATALOGUE,
     XTREAM_REQUEST,
@@ -18,6 +20,7 @@ import {
 import { DataFactory } from './data-factory';
 import { ElectronService } from './electron.service';
 import { NATIVE_HTTP, NativeDataService } from './native-data.service';
+import { NATIVE_EXTERNAL_PLAYER } from './native-external-player';
 import { PwaService } from './pwa.service';
 
 describe('NativeDataService', () => {
@@ -25,6 +28,7 @@ describe('NativeDataService', () => {
     let nativeHttp: { get: jest.Mock };
     let snackBar: { open: jest.Mock };
     let playlists: { handlePlaylistParsing: jest.Mock };
+    let externalPlayer: jest.Mock;
 
     const xtreamRequest = (
         params: Record<string, string>,
@@ -41,6 +45,7 @@ describe('NativeDataService', () => {
         nativeHttp = { get: jest.fn() };
         snackBar = { open: jest.fn() };
         playlists = { handlePlaylistParsing: jest.fn() };
+        externalPlayer = jest.fn();
 
         TestBed.configureTestingModule({
             imports: [HttpClientTestingModule],
@@ -51,6 +56,7 @@ describe('NativeDataService', () => {
                 { provide: Store, useValue: { dispatch: jest.fn() } },
                 { provide: SwUpdate, useValue: { versionUpdates: EMPTY } },
                 { provide: PlaylistsService, useValue: playlists },
+                { provide: NATIVE_EXTERNAL_PLAYER, useValue: externalPlayer },
                 {
                     provide: TranslateService,
                     useValue: { instant: jest.fn((key: string) => key) },
@@ -324,6 +330,43 @@ describe('NativeDataService', () => {
                 expect.objectContaining({ payload: [{ id: 7 }] })
             );
         });
+    });
+
+    it.each([OPEN_VLC_PLAYER, OPEN_MPV_PLAYER])(
+        'external playback delegates to the native plugin on native shell (%s)',
+        async (event) => {
+            externalPlayer.mockResolvedValue(true);
+
+            const result = await service.sendIpcEvent<Promise<unknown>>(event, {
+                url: 'http://host:8080/movie/u/p/7.mkv',
+                title: 'Film',
+            });
+
+            expect(externalPlayer).toHaveBeenCalledWith(
+                'http://host:8080/movie/u/p/7.mkv',
+                'Film'
+            );
+            expect(result).toBeUndefined();
+            expect(snackBar.open).not.toHaveBeenCalled();
+        }
+    );
+
+    it('shows install hint when no app handles the intent', async () => {
+        externalPlayer.mockResolvedValue(false);
+
+        await service.sendIpcEvent<Promise<unknown>>(OPEN_VLC_PLAYER, {
+            url: 'http://host:8080/live/u/p/1.ts',
+        });
+
+        expect(externalPlayer).toHaveBeenCalledWith(
+            'http://host:8080/live/u/p/1.ts',
+            undefined
+        );
+        expect(snackBar.open).toHaveBeenCalledWith(
+            'PORTALS.EXTERNAL_PLAYER_NOT_INSTALLED',
+            'CLOSE',
+            expect.objectContaining({ duration: expect.any(Number) })
+        );
     });
 
     it('fails URL playlist downloads with the HTTP status', async () => {

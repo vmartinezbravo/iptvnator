@@ -40,6 +40,7 @@ export interface WebPlayerRecoveryControllerDeps {
     readonly playbackExternallyTransferable: Signal<boolean>;
     readonly alternativeSourceCount: () => number;
     readonly managedExternalPlayersAvailable: () => boolean;
+    readonly nativeExternalPlayerAvailable?: () => boolean;
     readonly tryAutoLiveFormat?: (issue: PlaybackDiagnostic) => boolean;
     readonly emitPlaybackFailed: (code: PlaybackDiagnosticCode) => void;
     readonly emitExternalFallbackRequested: (
@@ -87,6 +88,8 @@ export class WebPlayerRecoveryController {
             externalStates: this.deps.externalRecovery.states(),
             managedExternalPlayersAvailable:
                 this.deps.managedExternalPlayersAvailable(),
+            nativeExternalPlayerAvailable:
+                this.deps.nativeExternalPlayerAvailable?.() ?? false,
             playbackExternallyTransferable:
                 this.deps.playbackExternallyTransferable(),
             isLive: this.deps.resolvedIsLive(),

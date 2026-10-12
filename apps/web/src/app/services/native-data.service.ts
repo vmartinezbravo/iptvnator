@@ -1,8 +1,11 @@
 import { inject, Injectable, InjectionToken, Injector } from '@angular/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { CapacitorHttp, HttpOptions } from '@capacitor/core';
 import { from, Observable } from 'rxjs';
 import { PlaylistsService } from '@iptvnator/services';
 import {
+    OPEN_MPV_PLAYER,
+    OPEN_VLC_PLAYER,
     Playlist,
     PortalDebugTransport,
     XTREAM_PREFETCH_LIVE_CATALOGUE,
@@ -18,6 +21,7 @@ import {
     toNativeTransportError,
 } from './native-xtream-request';
 import { NativeXtreamPrefetch } from './native-xtream-prefetch';
+import { NATIVE_EXTERNAL_PLAYER } from './native-external-player';
 import {
     PwaService,
     PwaXtreamResponse,
@@ -57,6 +61,8 @@ export class NativeDataService extends PwaService {
     // native shell: resolve it on use, not at construction.
     private readonly injector = inject(Injector);
     private readonly prefetch = new NativeXtreamPrefetch();
+    private readonly externalPlayer = inject(NATIVE_EXTERNAL_PLAYER);
+    private readonly nativeSnackBar = inject(MatSnackBar);
     protected override readonly xtreamDebugTransport: PortalDebugTransport =
         'native-http';
 
@@ -101,7 +107,35 @@ export class NativeDataService extends PwaService {
             this.prefetchLiveCatalogue(payload as LiveCataloguePrefetch);
             return undefined as T;
         }
+        if (type === OPEN_VLC_PLAYER || type === OPEN_MPV_PLAYER) {
+            return this.openExternalPlayer(
+                payload as { url: string; title?: string }
+            ) as T;
+        }
         return super.sendIpcEvent<T>(type, payload);
+    }
+
+    /**
+     * The desktop MPV/VLC launch, on Android: the stream goes to a player
+     * app through the OS. There is no session to track, so it resolves void.
+     */
+    private async openExternalPlayer(payload: {
+        url: string;
+        title?: string;
+    }): Promise<void> {
+        const launched = await this.externalPlayer(
+            payload.url,
+            payload.title || undefined
+        );
+        if (!launched) {
+            this.nativeSnackBar.open(
+                this.translateService.instant(
+                    'PORTALS.EXTERNAL_PLAYER_NOT_INSTALLED'
+                ),
+                this.translateService.instant('CLOSE'),
+                { duration: 5000 }
+            );
+        }
     }
 
     /**

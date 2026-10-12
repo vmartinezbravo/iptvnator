@@ -39,9 +39,17 @@ describe('SerialDetailsMenuService', () => {
     );
     const episodesSignal = signal<Record<string, unknown[]>>({});
     const openEpisodeExternally = jest.fn().mockResolvedValue(undefined);
+    let runtime: {
+        supportsManagedExternalPlayers: boolean;
+        supportsNativeExternalPlayer: boolean;
+    };
     let service: SerialDetailsMenuService;
 
     beforeEach(() => {
+        runtime = {
+            supportsManagedExternalPlayers: true,
+            supportsNativeExternalPlayer: false,
+        };
         quickStartSignal.set(quickStart());
         recentItemsSignal.set([]);
         episodePositionsSignal.set(new Map());
@@ -70,10 +78,7 @@ describe('SerialDetailsMenuService', () => {
                             .mockResolvedValue({ id: 103 }),
                     },
                 },
-                {
-                    provide: RuntimeCapabilitiesService,
-                    useValue: { supportsManagedExternalPlayers: true },
-                },
+                { provide: RuntimeCapabilitiesService, useValue: runtime },
                 {
                     provide: SettingsStore,
                     useValue: { player: signal(VideoPlayer.MPV) },
@@ -121,6 +126,22 @@ describe('SerialDetailsMenuService', () => {
                 SERIES_MENU_ACTION.ExternalPlayer,
                 SERIES_MENU_ACTION.CopyUrl,
             ])
+        );
+    });
+
+    it('offers the next episode to VLC on a native shell', async () => {
+        runtime.supportsManagedExternalPlayers = false;
+        runtime.supportsNativeExternalPlayer = true;
+
+        const external = service
+            .sections()
+            .flatMap((section) => section.items)
+            .find((item) => item.id === SERIES_MENU_ACTION.ExternalPlayer);
+        expect(external?.hint).toBe('VLC');
+        await service.run(SERIES_MENU_ACTION.ExternalPlayer);
+        expect(openEpisodeExternally).toHaveBeenCalledWith(
+            expect.anything(),
+            'vlc'
         );
     });
 

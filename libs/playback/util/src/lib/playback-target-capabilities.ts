@@ -64,6 +64,8 @@ export function getInlinePlaybackEngineFamily(
 export function createPlaybackTargetCapabilities(options: {
     readonly sourceKind: PlaybackSourceKind;
     readonly managedExternalPlayersAvailable: boolean;
+    /** Native shell: the OS hands the stream to VLC; MPV does not exist. */
+    readonly nativeExternalPlayerAvailable?: boolean;
 }): readonly PlaybackTargetCapability[] {
     const inlineTargets = [
         InlinePlaybackPlayer.VideoJs,
@@ -93,7 +95,9 @@ export function createPlaybackTargetCapabilities(options: {
         {
             kind: 'external',
             target: 'vlc',
-            available: options.managedExternalPlayersAvailable,
+            available:
+                options.managedExternalPlayersAvailable ||
+                options.nativeExternalPlayerAvailable === true,
         },
     ];
 }
