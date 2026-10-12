@@ -961,3 +961,101 @@ duplicó en el Stick. Datos: `dist/performance/android-stick/media3-ui-*.json`.
 | Posición guardada y retomada               | **Sí** (±5 s tras Atrás; ~13 s perdidos tras cierre forzado)                                    |
 | 30 minutos seguidos                        | **Sí**: sin errores ni crecimiento de memoria (cortes breves sin aviso de error no se contaron) |
 | Sin cierres por memoria                    | **Sí**                                                                                          |
+
+## Fluidez del menú lateral y de los cambios de categoría (fase 5, Task 5.1a) — 2026-10-12
+
+### Condiciones
+
+- APK debug en el Fire TV Stick, sin `chrome://inspect` ni _screencast_. Mismo
+  método que en la fase 4, ahora versionado en `tools/android/ui-fluidity.mjs`
+  (`node tools/android/ui-fluidity.mjs 3 --restart`): arranque en frío, 75 s
+  de espera con la importación terminada, 3 rondas, mediana.
+- «Antes»: el APK de la cabeza de la fase 4c (`d1b81b989`). «Después de la
+  parte 1»: `cd10605a6`. «Después de la parte 2»: `fc80d88e2`.
+- Nueva métrica «frame por cambio»: para cada cambio, el
+  `long-animation-frame` más largo que provoca; mediana de los 12 cambios.
+  Es más estable que el hueco máximo, que con 3 rondas varía ±50 ms.
+- La ronda 1 de cada medición tiene una tarea larga de ~2,2 s justo después
+  de la espera de 75 s, antes y después de los cambios; la mediana no la
+  recoge.
+
+### Resultados (mediana de 3 rondas)
+
+| Escenario                         | Métrica                    |        Antes | Tras la parte 1 |   Tras la parte 2 | Mejora esperada |
+| --------------------------------- | -------------------------- | -----------: | --------------: | ----------------: | --------------: |
+| Menú lateral con el D-pad         | Respuesta a la tecla       | 176 / 208 ms |     45 / 66 ms |        52 / 81 ms | ≤ 100 / ≤ 120 ms |
+| (20 teclas)                       | fps                        |         48,2 |            58,5 |              58,4 |            ≥ 55 |
+|                                   | Tareas largas > 100 ms     |           35 |               0 |                 0 |               0 |
+| Cambiar de categoría en Directo   | Hueco más largo            |       484 ms |          334 ms |            384 ms |        ≤ 150 ms |
+| (12 seguidas, cada 700 ms)        | fps                        |         19,3 |            26,9 |              25,1 |            ≥ 40 |
+|                                   | Frame por cambio           |            — |      250 ms (1) |            178 ms |               — |
+| Cambiar de sección (×2)           | Hueco más largo            |       834 ms |          751 ms |            767 ms |        ≤ 400 ms |
+| Lista de canales: scroll 40 filas | fps / hueco más largo      | 31,7 / 184 ms (2) |          — |     33,2 / 184 ms |               — |
+
+(1) La métrica se añadió durante la parte 2; medida sobre el APK de la
+parte 1 (350, 250 y 250 ms en las tres rondas). (2) Fase 4.
+
+**Parte 1 — cumple todo lo esperado.** **Parte 2 — no lo alcanza**: el cambio
+de categoría y el de sección quedan pendientes para la fase 6 (palanca E, sin
+zone.js), como prevé el plan.
+
+### Parte 1: la causa era una regla CSS de Angular Material
+
+- Perfil de CPU de 6 pulsaciones: `showPopover` se llevaba 527 de 826 ms de
+  JavaScript. Es la capa del _tooltip_ del menú lateral, que Material abre en
+  cada foco de teclado.
+- No era el popover: en el Stick, **insertar cualquier elemento** en la página
+  costaba 60–157 ms de recálculo de estilos (el layout, 5–8 ms; el cambio de
+  foco, 6–8 ms). Quitando reglas una a una, la culpable es
+  `.mat-mdc-menu-item:has(.material-icons, mat-icon, [matButtonIcon])` (y su
+  gemela RTL), de los estilos del menú de Material: **con ella, cada inserción
+  recalcula los estilos de todo el documento; sin ella, 1 ms**.
+- Esa regla solo cambia el relleno de los elementos de menú con icono a los
+  tokens «con icono», que valen lo mismo (12 px) que los normales en este tema.
+  En el runtime nativo, un inicializador (`native-style-tuning.ts`) la borra
+  de las hojas cargadas y de las que Angular añade después. Sin cambio visual:
+  el _tooltip_ sigue apareciendo al enfocar.
+- No hizo falta sacar manejadores de la zona de Angular ni añadir `OnPush`: el
+  perfil muestra que el resto del JavaScript por tecla es pequeño.
+
+### Parte 2: dónde va el tiempo de un cambio de categoría
+
+Tras la parte 1, cada cambio era un único frame de ~240 ms
+(`long-animation-frame`): ~150 ms de JavaScript (la detección de cambios crea
+las 10 filas visibles, de 25 nodos cada una) y ~90 ms de estilos y layout
+forzados de esas filas. El layout del frame, después, solo ~10 ms.
+
+| Prueba en la página (sin cambiar el código)                    | Frame por cambio |
+| -------------------------------------------------------------- | ---------------: |
+| Sin cambios                                                    |           250 ms |
+| Ocultar EPG y botones de cada fila (`display: none`)           |           202 ms |
+| Sin transiciones ni animaciones                                |           220 ms |
+| Sin `backdrop-filter` / sin `container-type` en las filas      |      sin cambio medible |
+
+Aplicado, solo en el runtime nativo:
+
+1. **Filas ligeras primero:** cada fila pinta logo y nombre, y añade la EPG y
+   los botones (dos botones con _tooltip_) un frame después, todas a la vez en
+   una sola tarea (`RowDetailsScheduler`). La columna de los botones se
+   reserva para que el nombre no se mueva.
+2. **Sin transiciones** bajo la clase `native-shell` (las de `box-shadow` y
+   bordes de las categorías repintaban varios frames tras cada cambio). Las
+   animaciones se mantienen (los _spinners_ deben girar).
+
+No aplicado: fondos opacos en lugar de `backdrop-filter` (no cambia nada
+medible en estos escenarios y sí el aspecto).
+
+Resultado: la lista nueva aparece antes (frame por cambio 250 → 178 ms) y los
+detalles llegan en un segundo frame de ~150 ms. Pero el trabajo total sube
+~50 ms, así que el hueco más largo y los fps no mejoran.
+
+### Lo que queda para la fase 6
+
+- Cambio de categoría: ~140–160 ms de JavaScript de Angular por cambio (crear
+  10 filas con botones Material, _tooltips_, iconos y pipes) y ~90 ms de
+  estilos y layout. Bajar de 150 ms pide menos trabajo por fila o por
+  detección de cambios (palanca E, sin zone.js), no solo repartirlo.
+- Cambio de sección: ~520 ms por cambio, que es construir la página entera.
+- La lista de categorías fuerza el layout tras cada selección (para centrar la
+  categoría elegida, en un _microtask_); hoy no cuesta más que el layout del
+  frame, pero obliga a hacerlo dentro de la tarea larga.
