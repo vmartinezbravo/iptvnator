@@ -24,24 +24,23 @@ export function exportPwaUserState(
     playlistId: string,
     storage: PwaUserStateStorage
 ): XtreamBackupUserStateSnapshot {
-    const favorites = (storage.favorites[playlistId] ?? []).flatMap((key) => {
+    // No flatMap: the app build targets a library older than ES2019.
+    const favorites: XtreamBackupUserStateSnapshot['favorites'] = [];
+    for (const key of storage.favorites[playlistId] ?? []) {
         const ref = typedCollectionRef(key);
-        return ref ? [{ xtreamId: ref.id, contentType: ref.type }] : [];
-    });
-    const recentlyViewed = (storage.recent[playlistId] ?? []).flatMap(
-        (item) => {
-            const ref = typedCollectionRef(item.id);
-            return ref
-                ? [
-                      {
-                          xtreamId: ref.id,
-                          contentType: ref.type,
-                          viewedAt: item.viewedAt,
-                      },
-                  ]
-                : [];
+        if (ref) favorites.push({ xtreamId: ref.id, contentType: ref.type });
+    }
+    const recentlyViewed: XtreamBackupUserStateSnapshot['recentlyViewed'] = [];
+    for (const item of storage.recent[playlistId] ?? []) {
+        const ref = typedCollectionRef(item.id);
+        if (ref) {
+            recentlyViewed.push({
+                xtreamId: ref.id,
+                contentType: ref.type,
+                viewedAt: item.viewedAt,
+            });
         }
-    );
+    }
     return {
         favorites,
         recentlyViewed,
@@ -75,10 +74,11 @@ export function mergePwaRestoreState(
         if (key !== null && !favorites.includes(key)) favorites.push(key);
     }
 
-    const backupRecent = backup.recentlyViewed.flatMap((item) => {
+    const backupRecent: StoredRecentItem[] = [];
+    for (const item of backup.recentlyViewed) {
         const id = collectionKey({ id: item.xtreamId, type: item.contentType });
-        return id === null ? [] : [{ id, viewedAt: item.viewedAt }];
-    });
+        if (id !== null) backupRecent.push({ id, viewedAt: item.viewedAt });
+    }
     // Readers sort by viewedAt; storage keeps existing items first.
     const recent = deduplicateRecentItems([
         ...(current.recent[playlistId] ?? []),
