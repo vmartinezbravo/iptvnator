@@ -33,9 +33,10 @@ function tuneSheet(sheet: CSSStyleSheet | null): void {
 }
 
 /**
- * On the native shell, strips the costly Material rules from the styles in
- * the document and from component styles Angular adds later. Returns a stop
- * function.
+ * On the native shell, marks the document with `native-shell` (the hook for
+ * the Stick's style overrides in styles.scss) and strips the costly Material
+ * rules from the styles in the document and from component styles Angular
+ * adds later. Returns a stop function.
  */
 export function startNativeStyleTuning(
     runtime: RuntimeCapabilitiesService,
@@ -43,6 +44,7 @@ export function startNativeStyleTuning(
 ): () => void {
     if (!runtime.isNativeShell) return () => undefined;
 
+    doc.documentElement.classList.add('native-shell');
     Array.from(doc.styleSheets).forEach(tuneSheet);
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {

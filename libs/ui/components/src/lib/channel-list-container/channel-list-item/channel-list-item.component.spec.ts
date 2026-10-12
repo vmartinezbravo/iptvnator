@@ -7,6 +7,7 @@ import { SettingsStore } from '@iptvnator/services';
 import { EpgProgram } from '@iptvnator/shared/interfaces';
 import { EpgProgrammeDialogService } from '@iptvnator/ui/epg';
 import { ChannelListItemComponent } from './channel-list-item.component';
+import { RowDetailsScheduler } from './row-details-scheduler';
 
 describe('ChannelListItemComponent', () => {
     let fixture: ComponentFixture<ChannelListItemComponent>;
@@ -414,5 +415,70 @@ describe('ChannelListItemComponent with an EPG display offset', () => {
         ]);
         // The row still hands the raw programme to consumers (dialog, catch-up).
         expect(program.startTimestamp).toBe(startTimestamp);
+    });
+});
+
+describe('ChannelListItemComponent on a native shell', () => {
+    let fixture: ComponentFixture<ChannelListItemComponent>;
+    let paint: (() => void) | null;
+    let cancel: jest.Mock;
+
+    beforeEach(async () => {
+        paint = null;
+        cancel = jest.fn();
+        await TestBed.configureTestingModule({
+            imports: [
+                ChannelListItemComponent,
+                NoopAnimationsModule,
+                TranslateModule.forRoot(),
+            ],
+            providers: [
+                { provide: EpgProgrammeDialogService, useValue: { open: jest.fn() } },
+                {
+                    provide: RowDetailsScheduler,
+                    useValue: {
+                        defers: true,
+                        afterNextPaint: (callback: () => void) => {
+                            paint = callback;
+                            return cancel;
+                        },
+                    },
+                },
+            ],
+        }).compileComponents();
+
+        fixture = TestBed.createComponent(ChannelListItemComponent);
+        fixture.componentRef.setInput('name', 'News');
+        fixture.componentRef.setInput('showFavoriteButton', true);
+        fixture.componentRef.setInput('epgProgram', {
+            start: '2026-04-05 03:00:00',
+            stop: '2026-04-05 03:30:00',
+            channel: 'channel-1',
+            title: 'Current Show',
+            desc: '',
+            category: null,
+        } as EpgProgram);
+        fixture.detectChanges();
+    });
+
+    it('paints the name first and adds the programme and buttons after the next paint', () => {
+        const row: HTMLElement = fixture.nativeElement;
+        expect(row.querySelector('.channel-name')?.textContent).toContain('News');
+        expect(row.querySelector('.epg-title')).toBeNull();
+        expect(row.querySelector('.favorite-button')).toBeNull();
+        expect(row.querySelector('.action-buttons--pending')).not.toBeNull();
+
+        paint?.();
+        fixture.detectChanges();
+
+        expect(row.querySelector('.epg-title')?.textContent).toContain('Current Show');
+        expect(row.querySelector('.favorite-button')).not.toBeNull();
+        expect(row.querySelector('.action-buttons--pending')).toBeNull();
+    });
+
+    it('cancels the pending details when the row is destroyed first', () => {
+        fixture.destroy();
+
+        expect(cancel).toHaveBeenCalledTimes(1);
     });
 });

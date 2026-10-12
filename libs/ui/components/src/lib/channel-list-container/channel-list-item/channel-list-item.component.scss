@@ -263,6 +263,12 @@
         gap: 2px;
     }
 
+    // Keeps the buttons' column while they wait for the row's first paint
+    // (RowDetailsScheduler), so the name does not reflow when they appear.
+    &--pending {
+        width: 28px;
+    }
+
     button {
         width: 28px;
         height: 28px;

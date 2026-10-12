@@ -307,3 +307,13 @@ body.dark-theme {
 .channel-scroll-focus:focus-visible {
     @include focus-ring.focus-ring-declarations($offset: -2px);
 }
+
+// Fire TV / Android TV (Task 5.1a): state changes without transitions. On
+// the Stick, box-shadow and border transitions (category items, buttons)
+// repaint on the main thread for several frames right after each switch.
+// The class comes from startNativeStyleTuning(); animations stay (spinners).
+.native-shell *,
+.native-shell *::before,
+.native-shell *::after {
+    transition: none !important;
+}

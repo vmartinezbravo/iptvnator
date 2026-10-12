@@ -51,7 +51,9 @@
                 }
             </div>
             @if (showEpg()) {
-                @if (epgProgram(); as program) {
+                @if (!detailsReady()) {
+                    <div class="epg-placeholder" aria-hidden="true">&nbsp;</div>
+                } @else if (epgProgram(); as program) {
                     <div class="epg-title">
                         {{ program.title }}
                     </div>
@@ -90,8 +92,11 @@
         showFavoriteButton() ||
         showAuxActionButton()
     ) {
-        <div class="action-buttons">
-            @if (showFavoriteButton()) {
+        <div
+            class="action-buttons"
+            [class.action-buttons--pending]="!detailsReady()"
+        >
+            @if (detailsReady() && showFavoriteButton()) {
                 <button
                     mat-icon-button
                     class="favorite-button"
@@ -110,7 +115,7 @@
                     }}</mat-icon>
                 </button>
             }
-            @if (showAuxActionButton()) {
+            @if (detailsReady() && showAuxActionButton()) {
                 <button
                     mat-icon-button
                     class="favorite-button"
@@ -121,7 +126,7 @@
                     <mat-icon>{{ auxActionIcon() }}</mat-icon>
                 </button>
             }
-            @if (showProgramInfoButton() && showEpg()) {
+            @if (detailsReady() && showProgramInfoButton() && showEpg()) {
                 <!-- The slot is reserved even before the programme loads so
                      the buttons above never shift when EPG data arrives -->
                 <button

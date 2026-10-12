@@ -4,6 +4,7 @@ import {
     ChangeDetectionStrategy,
     Component,
     computed,
+    DestroyRef,
     effect,
     inject,
     input,
@@ -18,6 +19,7 @@ import { EpgProgrammeDialogService, getProgramTimeMs } from '@iptvnator/ui/epg';
 import { EpgProgram } from '@iptvnator/shared/interfaces';
 import { SettingsStore } from '@iptvnator/services';
 import { applyChannelNameStrip } from '@iptvnator/shared/m3u-utils';
+import { RowDetailsScheduler } from './row-details-scheduler';
 
 @Component({
     selector: 'app-channel-list-item',
@@ -39,6 +41,9 @@ export class ChannelListItemComponent {
     private readonly logoFailed = signal(false);
     private readonly settingsStore = inject(SettingsStore);
     readonly epgOffsetMinutes = this.settingsStore.resolvedEpgOffsetMinutes;
+    private readonly detailsScheduler = inject(RowDetailsScheduler);
+    /** False until the row's first paint where row details are deferred. */
+    readonly detailsReady = signal(!this.detailsScheduler.defers);
 
     readonly isDraggable = input(false);
     readonly logo = input<string | null | undefined>('');
@@ -82,6 +87,12 @@ export class ChannelListItemComponent {
     readonly contextMenuRequested = output<MouseEvent>();
 
     constructor() {
+        if (!this.detailsReady()) {
+            const cancel = this.detailsScheduler.afterNextPaint(() =>
+                this.detailsReady.set(true)
+            );
+            inject(DestroyRef).onDestroy(cancel);
+        }
         effect(() => {
             this.logo();
             this.logoFailed.set(false);

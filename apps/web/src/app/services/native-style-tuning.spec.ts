@@ -29,6 +29,7 @@ describe('startNativeStyleTuning', () => {
     afterEach(() => {
         stop?.();
         document.head.innerHTML = '';
+        document.documentElement.classList.remove('native-shell');
     });
 
     it('removes the Material menu-item :has rules already in the document', () => {
@@ -61,6 +62,14 @@ describe('startNativeStyleTuning', () => {
         ).toEqual(['.mat-mdc-menu-item']);
     });
 
+    it('marks the document as a native shell for its style overrides', () => {
+        stop = startNativeStyleTuning(runtime(true), document);
+
+        expect(
+            document.documentElement.classList.contains('native-shell')
+        ).toBe(true);
+    });
+
     it('leaves the styles untouched outside a native shell', async () => {
         const style = addStyle(MENU_ITEM_HAS);
 
@@ -70,5 +79,8 @@ describe('startNativeStyleTuning', () => {
 
         expect(selectors(style)).toHaveLength(1);
         expect(selectors(later)).toHaveLength(1);
+        expect(
+            document.documentElement.classList.contains('native-shell')
+        ).toBe(false);
     });
 });
