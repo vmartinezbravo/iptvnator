@@ -93,6 +93,20 @@ export class WorkspaceShellXtreamImportService {
         const isPreparingCurrentPlaylist =
             this.isRefreshPreparationRunningForPlaylist(context.playlistId);
 
+        // On the native shell (Fire TV) a content section opens as soon as
+        // its own type is loaded: live channels arrive ~40 s before movies
+        // and series there. Search and Recently added need the whole import.
+        if (
+            this.runtime.isNativeShell &&
+            !isPreparingCurrentPlaylist &&
+            (section === 'live' || section === 'vod' || section === 'series')
+        ) {
+            return (
+                this.isImportRunning() &&
+                this.xtreamStore.contentLoadStateByType()[section] !== 'ready'
+            );
+        }
+
         return (
             (this.isImportRunning() || isPreparingCurrentPlaylist) &&
             (section === 'vod' ||
