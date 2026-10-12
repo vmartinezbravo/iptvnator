@@ -46,11 +46,21 @@ final class NativePlayerEvents {
         send("error", data);
     }
 
-    static void closed(int index, long positionMs) {
+    static void progress(int index, long positionMs, long durationMs) {
+        send("progress", position(index, positionMs, durationMs));
+    }
+
+    static void closed(int index, long positionMs, long durationMs) {
+        send("closed", position(index, positionMs, durationMs));
+    }
+
+    /** {@code durationMs} is -1 while the duration is unknown (live, no index). */
+    private static JSObject position(int index, long positionMs, long durationMs) {
         JSObject data = new JSObject();
         data.put("index", index);
         data.put("positionMs", positionMs);
-        send("closed", data);
+        data.put("durationMs", durationMs);
+        return data;
     }
 
     /** Stream URLs carry the provider's credentials; never let one out. */

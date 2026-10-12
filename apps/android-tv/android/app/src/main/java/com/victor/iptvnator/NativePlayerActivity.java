@@ -58,6 +58,7 @@ public class NativePlayerActivity extends AppCompatActivity {
     private boolean closed;
     /** Audio decoder of the current channel; null while passing through. */
     private String audioDecoder;
+    private final Runnable reportProgress = this::reportProgress;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,6 +100,15 @@ public class NativePlayerActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onPlaybackStateChanged(int state) {
+                if (state == Player.STATE_ENDED && !isLive) {
+                    // The end of a movie or an episode: it counts as watched.
+                    close(PlaybackProgress.durationMs(player.getDuration()));
+                    finish();
+                }
+            }
+
+            @Override
             public void onPlayerError(PlaybackException error) {
                 NativePlayerEvents.error(cursor.index(), error.getErrorCodeName(), error.getMessage());
             }
@@ -111,6 +121,8 @@ public class NativePlayerActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
+                // Fire OS calls onStop 1-3 s after Back; report the close now.
+                close(player.getCurrentPosition());
                 finish();
             }
         });
@@ -222,6 +234,37 @@ public class NativePlayerActivity extends AppCompatActivity {
         }
         player.prepare();
         player.setPlayWhenReady(true);
+        if (!isLive) {
+            mainThread.removeCallbacks(reportProgress);
+            mainThread.postDelayed(reportProgress, PlaybackProgress.INTERVAL_MS);
+        }
+    }
+
+    /** Movies and episodes only: what a low-memory kill would otherwise lose. */
+    private void reportProgress() {
+        if (player == null) {
+            return;
+        }
+        if (player.getPlaybackState() == Player.STATE_READY) {
+            NativePlayerEvents.progress(
+                cursor.index(),
+                player.getCurrentPosition(),
+                PlaybackProgress.durationMs(player.getDuration())
+            );
+        }
+        mainThread.postDelayed(reportProgress, PlaybackProgress.INTERVAL_MS);
+    }
+
+    /** Reports the close once and releases the player at the same moment. */
+    private void close(long positionMs) {
+        if (closed || player == null) {
+            return;
+        }
+        closed = true;
+        mainThread.removeCallbacks(reportProgress);
+        NativePlayerEvents.closed(cursor.index(), positionMs, PlaybackProgress.durationMs(player.getDuration()));
+        player.release();
+        player = null;
     }
 
     private void reportFirstFrame() {
@@ -239,8 +282,7 @@ public class NativePlayerActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         if (player != null && !closed) {
-            closed = true;
-            NativePlayerEvents.closed(cursor.index(), player.getCurrentPosition());
+            close(player.getCurrentPosition());
             finish();
         }
     }
@@ -249,6 +291,7 @@ public class NativePlayerActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         resolver.shutdownNow();
+        mainThread.removeCallbacks(reportProgress);
         if (player != null) {
             player.release();
             player = null;
