@@ -3,7 +3,10 @@ package com.victor.iptvnator;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -77,6 +80,16 @@ final class StreamRedirects {
             current = next;
         }
         return current;
+    }
+
+    /** HLS playlists are told by the path; resolved URLs carry a query. */
+    static boolean isHls(String url) {
+        try {
+            String path = new URI(url).getPath();
+            return path != null && path.toLowerCase(Locale.ROOT).endsWith(".m3u8");
+        } catch (URISyntaxException error) {
+            return false;
+        }
     }
 
     /** The real network: one request per hop, redirects not followed. */

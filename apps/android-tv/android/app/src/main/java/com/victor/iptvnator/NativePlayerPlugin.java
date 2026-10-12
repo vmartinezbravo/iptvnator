@@ -30,7 +30,15 @@ public class NativePlayerPlugin extends Plugin {
     /** {@link SystemClock#elapsedRealtime()} when JS asked to play. */
     static final String EXTRA_REQUESTED_AT = "com.victor.iptvnator.requestedAt";
 
-    static final String PLAYER_ACTIVITY = "com.victor.iptvnator.NativePlayerActivity";
+    @Override
+    public void load() {
+        NativePlayerEvents.attach(this);
+    }
+
+    /** Called by {@link NativePlayerEvents}; the activity runs elsewhere. */
+    void emit(String event, JSObject data) {
+        notifyListeners(event, data);
+    }
 
     @PluginMethod
     public void play(PluginCall call) {
@@ -59,8 +67,7 @@ public class NativePlayerPlugin extends Plugin {
             return;
         }
 
-        Intent intent = new Intent();
-        intent.setClassName(getContext(), PLAYER_ACTIVITY);
+        Intent intent = new Intent(getContext(), NativePlayerActivity.class);
         intent.putStringArrayListExtra(EXTRA_URLS, urls);
         intent.putStringArrayListExtra(EXTRA_TITLES, titles);
         intent.putExtra(EXTRA_INDEX, index);

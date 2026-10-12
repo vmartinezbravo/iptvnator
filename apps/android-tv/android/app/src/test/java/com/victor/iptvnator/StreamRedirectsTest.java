@@ -1,7 +1,9 @@
 package com.victor.iptvnator;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -82,5 +84,14 @@ public class StreamRedirectsTest {
 
         assertEquals("http://a.example/", StreamRedirects.resolve("http://a.example/", UA, opener, 2));
         assertEquals(2, opener.agents.size());
+    }
+
+    @Test
+    public void detectsHlsByThePathEvenWithAQuery() {
+        assertTrue(StreamRedirects.isHls("http://1.2.3.4:80/hls/abc/index.m3u8?token=x"));
+        assertTrue(StreamRedirects.isHls("https://host/live/u/p/1.M3U8"));
+        assertFalse(StreamRedirects.isHls("http://host/live/u/p/1.ts?m3u8=1"));
+        assertFalse(StreamRedirects.isHls("http://host/movie/u/p/46966.mkv"));
+        assertFalse(StreamRedirects.isHls("not a url"));
     }
 }
