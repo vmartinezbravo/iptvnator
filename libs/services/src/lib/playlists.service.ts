@@ -512,8 +512,11 @@ export class PlaylistsService {
                     return firstValueFrom(this.upsertSqlitePlaylist(playlist));
                 }
 
+                // An upsert, as in SQLite: a backup restore merges into the
+                // existing row with this same call, and IndexedDB add()
+                // rejects an existing key (ConstraintError).
                 await firstValueFrom(
-                    this.dbService.add(DbStores.Playlists, playlist)
+                    this.dbService.update(DbStores.Playlists, playlist)
                 );
                 return playlist;
             })
