@@ -18,4 +18,11 @@ public class PlaybackProgressTest {
         assertEquals(5_400_000, PlaybackProgress.durationMs(5_400_000));
         assertEquals(0, PlaybackProgress.durationMs(0));
     }
+
+    /** Final review #4: a movie that ends without a known duration still counts as watched. */
+    @Test
+    public void endsAtTheDurationOrAtThePositionWhenItIsUnknown() {
+        assertEquals(5_400_000, PlaybackProgress.endPositionMs(5_399_000, 5_400_000));
+        assertEquals(5_399_000, PlaybackProgress.endPositionMs(5_399_000, C.TIME_UNSET));
+    }
 }

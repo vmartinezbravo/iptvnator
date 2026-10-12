@@ -15,4 +15,9 @@ final class PlaybackProgress {
     static long durationMs(long media3Duration) {
         return media3Duration < 0 ? -1 : media3Duration;
     }
+
+    /** Where a finished movie ends: its duration, or the position when that is unknown. */
+    static long endPositionMs(long positionMs, long media3Duration) {
+        return media3Duration < 0 ? positionMs : media3Duration;
+    }
 }

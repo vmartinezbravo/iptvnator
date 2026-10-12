@@ -135,7 +135,7 @@ public class NativePlayerActivity extends AppCompatActivity {
             public void onPlaybackStateChanged(int state) {
                 if (state == Player.STATE_ENDED && !isLive) {
                     // The end of a movie or an episode: it counts as watched.
-                    close(PlaybackProgress.durationMs(player.getDuration()));
+                    close(PlaybackProgress.endPositionMs(player.getCurrentPosition(), player.getDuration()));
                     finish();
                 }
             }
@@ -212,7 +212,7 @@ public class NativePlayerActivity extends AppCompatActivity {
             }
             return true;
         }
-        int step = zapStep(event.getKeyCode());
+        int step = ZapKeys.step(event.getKeyCode(), !closed && player != null);
         if (step != 0 && isLive && urls.size() > 1) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
                 zap(step);
@@ -220,19 +220,6 @@ public class NativePlayerActivity extends AppCompatActivity {
             return true;
         }
         return super.dispatchKeyEvent(event);
-    }
-
-    private static int zapStep(int keyCode) {
-        switch (keyCode) {
-            case KeyEvent.KEYCODE_DPAD_UP:
-            case KeyEvent.KEYCODE_CHANNEL_UP:
-                return 1;
-            case KeyEvent.KEYCODE_DPAD_DOWN:
-            case KeyEvent.KEYCODE_CHANNEL_DOWN:
-                return -1;
-            default:
-                return 0;
-        }
     }
 
     private void zap(int step) {
@@ -254,6 +241,9 @@ public class NativePlayerActivity extends AppCompatActivity {
 
     /** Resolves the redirects off the main thread, then starts the item. */
     private void play(int index, long startPositionMs) {
+        if (player == null) {
+            return;
+        }
         int current = ++request;
         firstFrameSeen = false;
         audioDecoder = null;

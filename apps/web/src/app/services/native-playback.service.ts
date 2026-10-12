@@ -7,7 +7,11 @@ import {
     ResolvedPortalPlayback,
 } from '@iptvnator/shared/interfaces';
 import { Subscription } from 'rxjs';
-import { NATIVE_PLAYER, NativePlayerEvent } from './native-player';
+import {
+    NATIVE_PLAYER,
+    NativePlayerEvent,
+    NativePlayerRequest,
+} from './native-player';
 import { toPlaybackPosition } from './native-playback-position';
 import { SettingsStore } from './settings-store.service';
 
@@ -25,12 +29,22 @@ export class NativePlaybackService {
     private readonly positions = inject(PlaybackPositionUpdateFeed);
     private readonly history = inject(PlaybackHistoryGate);
     private current: Subscription | null = null;
+    /** Settles the pending live queue when a newer playback replaces it. */
+    private settleQueue: (() => void) | null = null;
+    /** Bumped by every start, so a superseded start does not follow. */
+    private generation = 0;
 
     async open(
         playback: ResolvedPortalPlayback
     ): Promise<ExternalPlayerSession> {
+        const current = await this.start({
+            items: [{ url: playback.streamUrl, title: playback.title }],
+            index: 0,
+            isLive: !!playback.isLive,
+            startPositionMs: (playback.startTime ?? 0) * 1000,
+        });
         const contentInfo = playback.contentInfo;
-        this.follow([playback.streamUrl], (event) => {
+        this.follow(current, [playback.streamUrl], (event) => {
             if (event.type !== 'progress' && event.type !== 'closed') {
                 return;
             }
@@ -45,18 +59,6 @@ export class NativePlaybackService {
                 this.positions.publish(position);
             }
         });
-        try {
-            await this.player.play({
-                items: [{ url: playback.streamUrl, title: playback.title }],
-                index: 0,
-                isLive: !!playback.isLive,
-                startPositionMs: (playback.startTime ?? 0) * 1000,
-                audioMode: this.settings.nativePlayerAudioMode?.() ?? 'auto',
-            });
-        } catch (error) {
-            this.stopFollowing();
-            throw error;
-        }
         const now = new Date().toISOString();
         return {
             id: `native-${Date.now()}`,
@@ -73,42 +75,62 @@ export class NativePlaybackService {
 
     /**
      * Live channels with zapping; resolves with the channel on screen when
-     * the player closes. Live channels have no position to keep.
+     * the player closes, or with the chosen one when a newer playback
+     * replaces it. Live channels have no position to keep.
      */
     async openLiveQueue(queue: PortalLiveQueue): Promise<number> {
-        const closed = new Promise<number>((resolve) => {
+        const current = await this.start({
+            items: queue.channels.map((channel) => ({
+                url: channel.streamUrl,
+                title: channel.title,
+            })),
+            index: queue.index,
+            isLive: true,
+        });
+        if (!current) {
+            return queue.index;
+        }
+        return new Promise<number>((resolve) => {
+            this.settleQueue = () => resolve(queue.index);
             this.follow(
+                current,
                 queue.channels.map((channel) => channel.streamUrl),
                 (event) => {
                     if (event.type === 'closed') {
+                        this.settleQueue = null;
                         resolve(event.index);
                     }
                 }
             );
         });
-        try {
-            await this.player.play({
-                items: queue.channels.map((channel) => ({
-                    url: channel.streamUrl,
-                    title: channel.title,
-                })),
-                index: queue.index,
-                isLive: true,
-                audioMode: this.settings.nativePlayerAudioMode?.() ?? 'auto',
-            });
-        } catch (error) {
-            this.stopFollowing();
-            throw error;
-        }
-        return closed;
+    }
+
+    /**
+     * Ends the previous playback's follower, then opens the player. Events
+     * are followed only once the plugin answered: the page receives the
+     * previous player's events late, and they come before that answer.
+     */
+    private async start(
+        request: Omit<NativePlayerRequest, 'audioMode'>
+    ): Promise<boolean> {
+        this.stopFollowing();
+        const generation = ++this.generation;
+        await this.player.play({
+            ...request,
+            audioMode: this.settings.nativePlayerAudioMode?.() ?? 'auto',
+        });
+        return generation === this.generation;
     }
 
     /** Only the latest playback's events count; its close ends them. */
     private follow(
+        current: boolean,
         streamUrls: readonly string[],
         onEvent: (event: NativePlayerEvent) => void
     ): void {
-        this.stopFollowing();
+        if (!current) {
+            return;
+        }
         const subscription = this.player.events().subscribe((event) => {
             if (event.type === 'first-frame' && streamUrls[event.index]) {
                 this.history.confirm({ streamUrls: [streamUrls[event.index]] });
@@ -124,5 +146,8 @@ export class NativePlaybackService {
     private stopFollowing(): void {
         this.current?.unsubscribe();
         this.current = null;
+        const settle = this.settleQueue;
+        this.settleQueue = null;
+        settle?.();
     }
 }
