@@ -234,6 +234,45 @@ describe('HtmlVideoPlayerComponent', () => {
         );
     });
 
+    it('logs first-frame once per source with the elapsed ms', () => {
+        const video = component.videoPlayer.nativeElement;
+        jest.spyOn(video, 'load').mockImplementation(() => undefined);
+        jest.spyOn(video, 'play').mockResolvedValue(undefined);
+        const now = jest.spyOn(performance, 'now');
+        const info = jest.spyOn(console, 'info').mockImplementation(() => {
+            /* silenced */
+        });
+        const firstFrameLogs = () =>
+            info.mock.calls.filter(([tag]) => tag === '[perf] first-frame');
+
+        now.mockReturnValue(1000);
+        component.playChannel({
+            ...TEST_CHANNEL,
+            url: 'https://stream.example/movie/film.mp4',
+        });
+        now.mockReturnValue(1850);
+        video.dispatchEvent(new Event('playing'));
+        now.mockReturnValue(9000);
+        video.dispatchEvent(new Event('playing'));
+
+        expect(firstFrameLogs()).toEqual([
+            ['[perf] first-frame', 850, 'native'],
+        ]);
+
+        now.mockReturnValue(20000);
+        component.playChannel({
+            ...TEST_CHANNEL,
+            url: 'https://stream.example/movie/other.mp4',
+        });
+        now.mockReturnValue(20300);
+        video.dispatchEvent(new Event('playing'));
+
+        expect(firstFrameLogs()).toEqual([
+            ['[perf] first-frame', 850, 'native'],
+            ['[perf] first-frame', 300, 'native'],
+        ]);
+    });
+
     it('emits a playback issue when the native video element reports an unsupported source', () => {
         const issues: unknown[] = [];
         component.channel = TEST_CHANNEL;

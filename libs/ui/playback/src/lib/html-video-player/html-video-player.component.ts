@@ -46,6 +46,7 @@ import {
 import { WebVideoSourceTracks } from '../web-video-support/web-video-source-tracks';
 import { attachHtmlVideoLegacyShortcuts } from './html-video-legacy-shortcuts';
 import { HtmlVideoElementSession } from './html-video-element-session';
+import { HtmlVideoFirstFrameLog } from './html-video-first-frame-log';
 import {
     emitFatalHlsPlaybackError,
     emitMpegTsPlaybackError,
@@ -125,6 +126,7 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
     private captionTracks: WebVideoSourceTracks | null = null;
     private videoSession: HtmlVideoElementSession | null = null;
     private legacyShortcuts: LegacyPlayerShortcuts | null = null;
+    private firstFrameLog: HtmlVideoFirstFrameLog | null = null;
 
     ngOnInit() {
         if (this.sharedControls) {
@@ -205,10 +207,15 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
         this.destroyHls();
         this.shakaSession?.stop();
         clearNativeVideoSources(this.videoPlayer.nativeElement);
+        const sourceKind = channel.url
+            ? resolvePlaybackUrlSourceKind(channel.url)
+            : null;
+        (this.firstFrameLog ??= new HtmlVideoFirstFrameLog(
+            this.videoPlayer.nativeElement
+        )).mark(sourceKind);
         if (channel.url) {
             this.playbackIssue.emit(null);
             const url = channel.url + (channel.epgParams ?? '');
-            const sourceKind = resolvePlaybackUrlSourceKind(channel.url);
 
             // The scoped Electron header override is owned by
             // WebPlayerViewComponent, which configures the full header set
@@ -384,6 +391,8 @@ export class HtmlVideoPlayerComponent implements OnInit, OnChanges, OnDestroy {
         this.controlsSource = null;
         this.videoSession?.destroy();
         this.videoSession = null;
+        this.firstFrameLog?.destroy();
+        this.firstFrameLog = null;
         this.destroyMpegtsPlayer();
         this.destroyHls();
         this.shakaSession?.destroy();
