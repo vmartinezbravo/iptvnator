@@ -637,3 +637,121 @@ listas de canales, películas y series, y moverse por ellas.
   proponer causas y soluciones con su coste en la fase que corresponda (Task
   5.5 si son estilos o foco, fase 6 si es peso de JS o del render). Sin actuar
   hasta entonces.
+
+## Fluidez de la interfaz sin inspector (fase 4) — 2026-10-12
+
+### Condiciones
+
+- APK debug de la fase 4 en el Fire TV Stick, sin `chrome://inspect` ni
+  _screencast_. El script se conecta por DevTools solo para lanzar los
+  escenarios y leer los resultados (`Runtime.evaluate`, sin capturas).
+- 75 s después de abrir la app, con la importación de películas y series ya
+  terminada. Ningún vídeo reproduciéndose.
+- En cada escenario: `requestAnimationFrame` para contar fotogramas, y
+  `PerformanceObserver('longtask')` para las tareas de más de 50 ms del hilo
+  principal. 3 rondas.
+- «Respuesta a la tecla»: desde el `keydown` hasta el segundo fotograma
+  posterior, el primero que puede mostrar el cambio. Las teclas son reales
+  (`adb shell input keyevent`), separadas 300 ms.
+
+### Resultados (mediana de 3 rondas)
+
+| Escenario                                                  |      fps | Fotogramas > 100 ms | Hueco más largo | Tareas largas (máx.) | Respuesta a la tecla (mediana / p90) |
+| ---------------------------------------------------------- | -------: | ------------------: | --------------: | -------------------: | -----------------------------------: |
+| Menú lateral con el D-pad (20 teclas)                      |     49,1 |                  35 |          217 ms |     35 (máx. 213 ms) |                     **179 / 199 ms** |
+| Lista de canales: scroll de 40 filas abajo y arriba (CINE) | **31,7** |                  24 |          184 ms |     32 (máx. 132 ms) |                                    — |
+| Cambiar de categoría en Directo (12 seguidas, cada 700 ms) | **22,4** |                  16 |      **401 ms** |     16 (máx. 407 ms) |                                    — |
+| Cambiar de sección (Películas → Series → Directo, ×2)      |     30,2 |                   8 |      **951 ms** |     16 (máx. 832 ms) |                                    — |
+| Rejilla de películas: scroll de 30 pasos                   |     53,4 |                   1 |          167 ms |      2 (máx. 175 ms) |                                    — |
+
+En la ronda 1 la lista de canales tuvo además una pausa de 1,7 s (la primera
+vez que se abrió la categoría).
+
+### Qué significa
+
+- **La rejilla de películas va fluida.** El problema no es el WebView en
+  general.
+- **Cada pulsación del D-pad genera una tarea larga de ~140–200 ms.** La
+  respuesta de ~180 ms se nota: es la sensación de «algo lenta».
+- **La lista de canales con «ahora / después»** se queda en ~30 fps al
+  desplazarse, y **cambiar de categoría o de sección** congela la interfaz
+  0,4–1 s cada vez.
+
+### Causas probables (sin perfilar todavía) y soluciones
+
+| #   | Causa probable                                                                                                                          | Solución                                                                                                                                                                        | Coste | Fase                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------- |
+| U1  | Cada `keydown` dispara la detección de cambios de toda la app (zone.js), con muchos componentes vivos y manejadores de teclado globales | Primero un perfil de CPU de una pulsación para confirmarlo. Después: sacar los manejadores de teclado de la zona y `OnPush` donde falte; a medio plazo, sin zone.js (palanca E) | M–L   | 5.2 (perfil), fase 6       |
+| U2  | Efectos caros de GPU en el Stick: 34 usos de `backdrop-filter` (paneles «de cristal»), sombras y transiciones                           | En el runtime nativo, sustituir el desenfoque por fondos opacos y acortar o quitar transiciones (bajo una clase del runtime nativo, sin rediseñar)                              | S     | **5.5**                    |
+| U3  | Filas de canales caras: logo, barra de progreso EPG y menú contextual en cada fila; el scroll virtual crea y destruye filas a cada paso | Logos con tamaño fijo y `decoding="async"`, menos trabajo por fila, `templateCacheSize` > 0                                                                                     | S–M   | 5.5 (estilos) / 6 (render) |
+| U4  | Al cambiar de categoría o sección se crea de golpe la lista o la rejilla y su EPG en una sola tarea                                     | Pintar primero lo visible y diferir el resto (`@defer`, trocear la carga de EPG)                                                                                                | M     | fase 6                     |
+
+- Ninguna se aplica ahora. Se miden de nuevo con este mismo método tras la Task
+  5.2 (el polyfill de navegación espacial añade trabajo en cada tecla) y en la
+  fase 6.
+
+## Reproducción en el Stick (fase 4, Task 4.5) — 2026-10-12
+
+APK debug de la fase 4 en el Fire TV Stick (AFTSSS, Fire OS 7 / Android 9,
+WebView 138). Reproductor HTML5: hls.js para HLS, `<video>` nativo para VOD.
+Tiempos desde el clic hasta el primer fotograma (`[perf] first-frame`). Medido
+por DevTools sin inspector ni _screencast_.
+
+### Códecs que admite MSE (`[codecs]`)
+
+```json
+{
+    "avc": true,
+    "hevc": true,
+    "vp9": true,
+    "aac": true,
+    "ac3": false,
+    "eac3": false
+}
+```
+
+El hardware del Stick decodifica AC-3 y E-AC-3, pero el WebView no los admite
+en MSE ni tiene decodificador para `<video>` (spec §6.2).
+
+### Directo (todo HLS en este proveedor)
+
+| Canal                       | Momento      |    Primera imagen | Resultado                                                             |
+| --------------------------- | ------------ | ----------------: | --------------------------------------------------------------------- |
+| GOL play FULLHD             | elegir canal |         **7,7 s** | 1080p, con audio                                                      |
+| GOL PLAY SD                 | zapping      |             5,3 s | con audio                                                             |
+| GOL PLAY HD                 | zapping      |             5,8 s | con audio                                                             |
+| Real Madrid TV              | zapping      |                 — | sin imagen en 10 s, sin aviso                                         |
+| La 1 HD / La 1 SD / La 2 HD | zapping      | 5,9 / 5,1 / 5,9 s | con audio                                                             |
+| La 1 FHD / La 2 FHD         | zapping      |                 — | **no se reproducen**: `media-decode-error`, hls.js `fragParsingError` |
+
+- Mediana de zapping en los canales que funcionan: **5,8 s** (límite 5 s,
+  objetivo 3 s). Elegir canal: 7,7 s (una muestra; límite 5 s).
+- Los canales FHD llevan **H.264 + 3 pistas E-AC-3 y ninguna AAC** (tabla PMT
+  del primer segmento). Sin E-AC-3 en MSE, hls.js no puede montarlos.
+- Los segmentos HLS pesan ~5,3 MB: la primera imagen espera a que llegue un
+  segmento completo.
+
+### Películas (`<video>` nativo)
+
+| Película | Contenedor | Primera imagen | Resultado                                       |
+| -------- | ---------- | -------------: | ----------------------------------------------- |
+| 1080p    | mp4        |      **9,4 s** | con audio                                       |
+| 1080p    | mkv        |          3,6 s | **sin sonido** (H.264 + AC-3, 0 bytes de audio) |
+| 720p     | mkv        |          5,2 s | **sin sonido**                                  |
+
+### «Abrir en VLC»
+
+- El panel de error ofrece «Abrir en VLC» y lanza VLC directamente (es el único
+  reproductor real; la actividad de relleno de Fire OS se descarta).
+- VLC se cierra a los 2–4 s con los canales FHD: el proveedor responde a los
+  clientes que no son navegador con una redirección mal formada,
+  `Location: //https://servidor/…`, y VLC (igual que la pila HTTP de Java) busca
+  un servidor llamado «https». El WebView recibe una redirección correcta.
+
+### Pendiente (tras la decisión sobre ExoPlayer)
+
+Episodio de serie, retomar una posición guardada, 30 minutos seguidos.
+
+**Criterio de la Task 4.5: no aprobada.** Hay canales que no se reproducen
+(E-AC-3), películas mkv sin sonido (AC-3) y tiempos por encima de 5 s. Propuesta
+en `docs/android-exoplayer-proposal.md`.
