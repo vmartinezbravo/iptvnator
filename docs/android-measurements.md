@@ -455,3 +455,97 @@ y D, porque cuesta poco investigarla y puede ser grande. Con la A, ~14–15 s;
 la D puede bajar algo más.
 Para acercarse a 10 s harían falta además B o C. F, si las congelaciones de
 ~3 s molestan en el uso real.
+
+## Fire TV Stick tras las palancas A y D — línea base de la fase 3 (2026-10-12)
+
+Decisión de Víctor sobre la tabla anterior: aplicar la **A** y la **D**, solo
+en el runtime nativo y con tests. No aplicar la B, la C, la E ni la F por
+ahora. Aceptar el resultado si queda por debajo de ~15 s o si las palancas
+no ahorran más de 1 s.
+
+> **Línea base de la Fire TV: 15,2 s de mediana** desde que arranca la app
+> hasta poder elegir un canal en directo. Era 55,7 s al empezar la fase y
+> 17,2 s tras las mitigaciones 1 y 4. Dentro del límite de 20 s y ~5 s por
+> encima del objetivo de 10 s. Sin cierres por memoria. **Aceptada** según el
+> criterio de Víctor: ~15 s, y la A ahorró 2,0 s.
+
+### Palanca A: canales adelantados con la información de la cuenta
+
+En el transporte nativo (`NativeDataService`), un `get_account_info` normal
+(no una prueba de conexión) lanza a la vez las tres peticiones de categorías y
+`get_live_streams`, con las mismas credenciales. Cuando la importación pide
+exactamente esas peticiones, recibe la respuesta adelantada, una sola vez y
+dentro de 2 minutos; si el adelanto falló, pide de nuevo. Películas y series no
+se adelantan.
+
+El flujo de importación no cambia, incluido el de cuenta caducada, que sigue
+decidiéndose con `get_account_info`. Escritorio y PWA no usan este transporte.
+Commit `1c6882c8c`.
+
+### Palanca D: caché de código del WebView — investigada, sin arreglo aplicado
+
+- El WebView sí crea entradas en `cache/WebView/Default/HTTP Cache/Code Cache/js`
+  para los scripts de `http://localhost` (`main-*.js`, `polyfills-*.js`,
+  chunks).
+- **Todas ocupan 181–184 bytes**, incluso tras decenas de arranques con el
+  mismo build: son solo el marcador de «script visto», nunca el código
+  compilado.
+- **Conclusión: en cada arranque en frío el WebView parsea y compila desde
+  cero todo el JS de la app.** Es la mayor parte de los ~3 s de «(program)»
+  del perfil.
+- Causa probable: las respuestas que sirve Capacitor (`WebViewLocalServer`,
+  peticiones interceptadas) no se validan para la caché de código de
+  Chromium.
+- No hay un arreglo pequeño y seguro, así que no se ha tocado nada. Queda como
+  palanca pendiente (D2, abajo).
+
+### Resultados (3 arranques en frío)
+
+| Ronda       | Poder elegir canal |    PSS app | PSS renderer WebView |   Heap JS |
+| ----------- | -----------------: | ---------: | -------------------: | --------: |
+| 1           |         **15,8 s** |     110 MB |                90 MB |     45 MB |
+| 2           |         **14,9 s** |     170 MB |                91 MB |     45 MB |
+| 3           |         **15,2 s** |     157 MB |                93 MB |     45 MB |
+| **Mediana** |         **15,2 s** | **157 MB** |            **91 MB** | **45 MB** |
+
+- Ningún cierre. App + renderer ≈ 248 MB de mediana, sin cambio relevante
+  frente a las mediciones anteriores.
+- Resultados en bruto: `dist/performance/android-stick/2026-10-12T07-01-02-355Z.json`.
+
+Cronología de la ronda 3, la mediana (segundos desde `Start proc`):
+
+| Desde | Hasta | Qué ocurre                                                                     |
+| ----: | ----: | ------------------------------------------------------------------------------ |
+|     0 |  10,0 | Arranque de la app hasta la primera petición                                   |
+|  10,0 |  10,9 | `get_account_info`; a la vez arrancan las categorías y los canales adelantados |
+|  11,3 |  12,5 | La importación recoge las categorías (una ya estaba lista: 3 ms)               |
+|  12,6 |  13,7 | La importación recoge los canales en directo                                   |
+|  13,7 |  15,2 | Se quita el overlay de Live y se pinta la lista                                |
+
+En el Stick, cinco peticiones en paralelo compiten por la red y por el puente
+nativo, así que el adelanto no se solapa del todo: ahorra 2,0 s, no los ~3,5 s
+estimados.
+
+### Tirones al recorrer canales mientras se importan películas y series
+
+Mismo método que en la medición anterior.
+
+| Ronda | Teclas | Tecla atendida (mediana / p90 / máx.) | Teclas > 250 ms | Long tasks > 500 ms | Mayor hueco sin fotograma |
+| ----- | -----: | ------------------------------------: | --------------: | ------------------: | ------------------------: |
+| 1     |     84 |                      36 / 85 / 537 ms |               6 |                   2 |                 **2,7 s** |
+| 2     |     70 |                     38 / 120 / 357 ms |               1 |                   2 |                 **2,8 s** |
+| 3     |     82 |                     36 / 147 / 433 ms |               3 |                   2 |                 **3,1 s** |
+
+Igual que antes: respuesta fluida casi todo el rato, y **dos congelaciones por
+arranque**, la mayor de 2,7–3,1 s, al llegar películas y series.
+
+### Pendiente (documentado, no aplicado)
+
+| #   | Palanca                                                                                                                                                                     | Efecto estimado                                                      | Coste                      | Cuándo                                                              |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------- |
+| B   | Sacar los reproductores del camino de Live (`@defer` de `app-web-player-view` e imports por puntos de entrada secundarios)                                                  | −0,5 a −1,5 s                                                        | M                          | Solo con OK de Víctor (afecta a todos los runtimes)                 |
+| C   | Quitar Video.js, ArtPlayer y Shaka del build `android` (`fileReplacements`)                                                                                                 | −0,5 a −1 s y ~1,8 MB menos de JS                                    | M                          | **Fase 6** (Tasks 6.2/6.3)                                          |
+| D2  | Conseguir caché de código para el JS de la app: por ejemplo, otra forma de servir los assets que Chromium sí cachee, o _compile hints_ de V8 para compilar en segundo plano | Puede ser la mayor parte de los ~3 s de compilación en cada arranque | M (investigar + prototipo) | Cuando Víctor lo pida; candidata natural de la fase 6               |
+| E   | Salida ES2022 y/o quitar zone.js                                                                                                                                            | −0,5 a −1 s                                                          | M–L                        | Solo con OK de Víctor                                               |
+| F   | Repartir la normalización de películas y series en trozos que cedan el hilo principal                                                                                       | Quita las congelaciones de ~3 s; no cambia los 15 s                  | M                          | **Si las congelaciones molestan en el uso real**                    |
+| 2   | Catálogo por `fetch` del WebView (de la primera tabla)                                                                                                                      | Catálogo completo ~12 s antes; acorta el periodo de congelaciones    | M                          | Solo con OK expreso de Víctor (choca con la regla de CapacitorHttp) |
