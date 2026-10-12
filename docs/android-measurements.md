@@ -463,24 +463,33 @@ en el runtime nativo y con tests. No aplicar la B, la C, la E ni la F por
 ahora. Aceptar el resultado si queda por debajo de ~15 s o si las palancas
 no ahorran más de 1 s.
 
-> **Línea base de la Fire TV: 15,2 s de mediana** desde que arranca la app
-> hasta poder elegir un canal en directo. Era 55,7 s al empezar la fase y
-> 17,2 s tras las mitigaciones 1 y 4. Dentro del límite de 20 s y ~5 s por
-> encima del objetivo de 10 s. Sin cierres por memoria. **Aceptada** según el
-> criterio de Víctor: ~15 s, y la A ahorró 2,0 s.
+> Resultado con la A: 15,2 s de mediana (era 55,7 s al empezar la fase y
+> 17,2 s tras las mitigaciones 1 y 4). La **línea base definitiva** es la
+> medición posterior a la revisión final: **15,0 s** (sección siguiente).
+>
+> **Sobre la aceptación:** la A ahorró 2,0 s, más de 1 s, así que la segunda
+> condición de Víctor («las palancas no ahorran más de 1 s») **no se cumple**.
+> La aceptación se apoya solo en leer 15,0–15,2 s como «por debajo de ~15 s».
+> Víctor tiene que confirmar esa lectura.
 
-### Palanca A: canales adelantados con la información de la cuenta
+### Palanca A: canales adelantados mientras se comprueba la cuenta
 
-En el transporte nativo (`NativeDataService`), un `get_account_info` normal
-(no una prueba de conexión) lanza a la vez las tres peticiones de categorías y
-`get_live_streams`, con las mismas credenciales. Cuando la importación pide
-exactamente esas peticiones, recibe la respuesta adelantada, una sola vez y
-dentro de 2 minutos; si el adelanto falló, pide de nuevo. Películas y series no
-se adelantan.
+En el runtime nativo, la sesión de ruta de Xtream envía
+`XTREAM_PREFETCH_LIVE_CATALOGUE` al abrir Live, Películas o Series de una
+fuente. Lo hace **solo para esa fuente** y antes de comprobar su cuenta.
+`NativeDataService` lanza entonces las tres peticiones de categorías y
+`get_live_streams`. Cuando la importación pide exactamente esas peticiones,
+recibe la respuesta adelantada, una sola vez y dentro de 2 minutos; si el
+adelanto falló, pide de nuevo. Películas y series no se adelantan.
 
 El flujo de importación no cambia, incluido el de cuenta caducada, que sigue
-decidiéndose con `get_account_info`. Escritorio y PWA no usan este transporte.
-Commit `1c6882c8c`.
+decidiéndose con `get_account_info`. Escritorio y PWA nunca envían el comando.
+
+Commits:
+
+- `1c6882c8c`: primera versión, que adelantaba con cada `get_account_info`.
+- `e3c37cf8b`: la revisión final detectó que así se adelantaba para todas las
+  fuentes del dashboard, y este commit lo corrige.
 
 ### Palanca D: caché de código del WebView — investigada, sin arreglo aplicado
 
@@ -549,3 +558,39 @@ arranque**, la mayor de 2,7–3,1 s, al llegar películas y series.
 | E   | Salida ES2022 y/o quitar zone.js                                                                                                                                            | −0,5 a −1 s                                                          | M–L                        | Solo con OK de Víctor                                               |
 | F   | Repartir la normalización de películas y series en trozos que cedan el hilo principal                                                                                       | Quita las congelaciones de ~3 s; no cambia los 15 s                  | M                          | **Si las congelaciones molestan en el uso real**                    |
 | 2   | Catálogo por `fetch` del WebView (de la primera tabla)                                                                                                                      | Catálogo completo ~12 s antes; acorta el periodo de congelaciones    | M                          | Solo con OK expreso de Víctor (choca con la regla de CapacitorHttp) |
+
+## Línea base de la Fire TV tras la revisión final de la fase 3 — 2026-10-12
+
+Cambios de la revisión final que afectan al Stick:
+
+- **Adelanto solo para la fuente abierta** (commit `e3c37cf8b`).
+- **Redirecciones entre `http` y `https`** (commit `f75c64da6`): Android no las
+  sigue por debajo de CapacitorHttp; comprobado en el Stick, devuelve `302` sin
+  seguirlo. Ahora el transporte nativo sigue el `Location`, hasta 5 saltos, en
+  vez de dar «The provider answer is not JSON».
+
+> **Línea base de la Fire TV: 15,0 s de mediana** desde que arranca la app
+> hasta poder elegir un canal en directo. Dentro del límite de 20 s y ~5 s por
+> encima del objetivo de 10 s. Sin cierres por memoria.
+
+| Ronda       | `am start` | Poder elegir canal |    PSS app | PSS renderer | Mayor hueco sin fotograma | Teclas > 250 ms |
+| ----------- | ---------: | -----------------: | ---------: | -----------: | ------------------------: | --------------: |
+| 1           |      5,5 s |         **17,5 s** |     156 MB |        93 MB |                     3,3 s |          1 / 91 |
+| 2           |      3,9 s |         **15,0 s** |     163 MB |        92 MB |                     3,2 s |          4 / 83 |
+| 3           |      4,2 s |         **13,6 s** |     153 MB |        90 MB |                     3,7 s |          1 / 77 |
+| **Mediana** |  **4,2 s** |         **15,0 s** | **156 MB** |    **92 MB** |                 **3,3 s** |               — |
+
+- Con el adelanto en su sitio, la importación recoge las categorías en ~25 ms
+  y los canales en 6 ms en las rondas 1 y 3. En la ronda 2 el adelanto aún
+  estaba en curso, y los canales tardaron 2,3 s.
+- Lo que queda es casi todo arranque de la app: 11,0–14,3 s hasta la primera
+  petición. La ronda 1 fue más lenta desde el primer fotograma de Android
+  (`am start` 5,5 s).
+- Se mantienen las dos congelaciones por arranque mientras se importan
+  películas y series, ahora de 3,2–3,7 s (palanca F).
+- Medido con una sola fuente Xtream, porque es la única configurada en el
+  Stick.
+- Resultados en bruto: `dist/performance/android-stick/2026-10-12T07-46-38-775Z.json`.
+
+Las palancas pendientes (B, C, D2, E, F y la opción 2) siguen como en la tabla
+«Pendiente» de la sección anterior.
