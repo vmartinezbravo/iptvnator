@@ -689,6 +689,9 @@ vez que se abrió la categoría).
 - Ninguna se aplica ahora. Se miden de nuevo con este mismo método tras la Task
   5.2 (el polyfill de navegación espacial añade trabajo en cada tecla) y en la
   fase 6.
+- **Decisión de Víctor (2026-10-12):** el menú lateral (U1) y los congelones al
+  cambiar de categoría (U2 + U4) se arreglan en la **Task 5.1a**, justo antes de
+  la Task 5.2, con su estimación y la mejora esperada en `docs/PLAN-ANDROID.md`.
 
 ## Reproducción en el Stick (fase 4, Task 4.5) — 2026-10-12
 

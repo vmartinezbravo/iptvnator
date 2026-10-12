@@ -718,6 +718,57 @@ manteniendo la estética actual y las reglas de "Keyboard Focus" de
 - [ ] **Step 3: Verificar.** `aapt dump badging app-debug.apk | grep -E "leanback-launchable-activity|banner"`. Expected: aparecen las dos líneas. El banner se ve en el launcher del Stick y en el del emulador Android TV.
 - [ ] **Step 4: Commit** `feat(android-tv): leanback manifest and launcher banner`.
 
+### Task 5.1a: Fluidez del menú lateral y de los cambios de categoría (previa a la 5.2)
+
+Decidido por Víctor el 2026-10-12: se hace **justo antes de la Task 5.2**,
+porque el polyfill de navegación espacial añade trabajo a cada pulsación y
+conviene partir de una pulsación barata. Evidencia: `docs/android-measurements.md`,
+secciones «Fluidez de la interfaz sin inspector» (causas U1–U4) y «Dónde va el
+tiempo al navegar». Las dos partes se miden por separado, con el mismo método
+(sin inspector, 3 rondas, mediana) antes y después.
+
+**Parte 1 — Menú lateral con el D-pad (U1).** Estimación: **1,5–2 días**.
+
+- Partida: respuesta a la tecla 179 / 199 ms (mediana / p90), una tarea larga
+  de ~140–200 ms por pulsación; traza: ~230 ms de hilo principal, de ellos
+  ~100 ms de JavaScript y ~73 ms de estilos.
+- Trabajo:
+  1. perfil de CPU de una pulsación para localizar los manejadores y
+     componentes que la encarecen;
+  2. sacar de la zona de Angular los manejadores de teclado globales que no
+     cambian estado, `OnPush` en los componentes del menú y de la cabecera
+     donde falte;
+  3. abaratar los selectores CSS que recalculan estilos en todo el DOM en cada
+     cambio de foco.
+  Solo en el runtime nativo cuando el cambio afecte al aspecto; sin rediseñar.
+- Mejora esperada: respuesta a la tecla **≤ 100 ms** de mediana (≤ 120 ms p90),
+  sin tareas largas de más de 100 ms al pulsar, y el menú a ≥ 55 fps.
+
+**Parte 2 — Congelones al cambiar de categoría y de sección (U2 + U4).**
+Estimación: **1–1,5 días**.
+
+- Partida: 22,4 fps y huecos de **401 ms** al cambiar de categoría; huecos de
+  hasta **951 ms** al cambiar de sección; traza: ~260 ms por cambio de
+  categoría, ~128 ms de pintado y capas.
+- Trabajo:
+  1. en el runtime nativo, fondos opacos en lugar de `backdrop-filter` y
+     transiciones más cortas o ninguna, bajo una clase del runtime nativo;
+  2. pintar primero las filas visibles y diferir la EPG y el resto de la lista
+     (trocear la tarea de creación).
+- Mejora esperada: hueco más largo al cambiar de categoría **≤ 150 ms** (desde
+  401 ms), ≥ 40 fps durante los cambios, y cambio de sección **≤ 400 ms** (desde
+  951 ms).
+
+- [ ] **Step 1: Medir la partida** con el APK de la rama de la fase 5 (tras la
+  Task 5.1) y anotarla.
+- [ ] **Step 2: Parte 1**, con tests de lo que se pueda probar en Jest (por
+  ejemplo, que el manejador de teclado global no dispara detección de cambios).
+  Medir. Commit `perf(tv): cheaper D-pad key handling in the side menu`.
+- [ ] **Step 3: Parte 2.** Medir. Commit `perf(tv): avoid freezes when switching live categories`.
+- [ ] **Step 4: Anotar** antes y después en `docs/android-measurements.md`. Si
+  una parte no alcanza la mejora esperada, se anota y se sigue con la Task 5.2;
+  lo pendiente pasa a la fase 6 (palanca E, sin zone.js).
+
 ### Task 5.2: Navegación espacial con el D-pad
 
 **Files:**
