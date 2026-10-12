@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { PlaybackHistoryGate } from '@iptvnator/playback/data-access';
 import { PlaybackPositionUpdateFeed } from '@iptvnator/services';
 import {
     PlaybackPositionData,
@@ -29,6 +30,7 @@ describe('NativePlaybackService', () => {
     let player: { play: jest.Mock; events: () => Subject<NativePlayerEvent> };
     let published: PlaybackPositionData[];
     let audioMode: 'auto' | 'pcm';
+    let confirmed: { streamUrls: readonly string[] }[];
 
     beforeEach(() => {
         events = new Subject<NativePlayerEvent>();
@@ -38,6 +40,7 @@ describe('NativePlaybackService', () => {
         };
         published = [];
         audioMode = 'pcm';
+        confirmed = [];
         TestBed.configureTestingModule({
             providers: [
                 NativePlaybackService,
@@ -45,6 +48,13 @@ describe('NativePlaybackService', () => {
                 {
                     provide: SettingsStore,
                     useValue: { nativePlayerAudioMode: () => audioMode },
+                },
+                {
+                    provide: PlaybackHistoryGate,
+                    useValue: {
+                        confirm: (target: { streamUrls: readonly string[] }) =>
+                            confirmed.push(target),
+                    },
                 },
                 {
                     provide: PlaybackPositionUpdateFeed,
@@ -132,6 +142,78 @@ describe('NativePlaybackService', () => {
         });
 
         expect(published.map((p) => p.contentXtreamId)).toEqual([2]);
+    });
+
+    it('openLiveQueue passes every channel and resolves with the closing index', async () => {
+        const closing = TestBed.inject(NativePlaybackService).openLiveQueue({
+            index: 1,
+            channels: [
+                {
+                    streamUrl: 'http://example.test/live/1.m3u8',
+                    title: 'La 1 HD',
+                    isLive: true,
+                },
+                {
+                    streamUrl: 'http://example.test/live/2.m3u8',
+                    title: 'La 2 HD',
+                    isLive: true,
+                },
+                {
+                    streamUrl: 'http://example.test/live/3.m3u8',
+                    title: 'La 1 FHD',
+                    isLive: true,
+                },
+            ],
+        });
+        await Promise.resolve();
+        events.next({ type: 'first-frame', index: 1, ms: 3400 });
+        events.next({
+            type: 'closed',
+            index: 2,
+            positionMs: 0,
+            durationMs: -1,
+        });
+
+        await expect(closing).resolves.toBe(2);
+        expect(player.play).toHaveBeenCalledWith({
+            items: [
+                { url: 'http://example.test/live/1.m3u8', title: 'La 1 HD' },
+                { url: 'http://example.test/live/2.m3u8', title: 'La 2 HD' },
+                { url: 'http://example.test/live/3.m3u8', title: 'La 1 FHD' },
+            ],
+            index: 1,
+            isLive: true,
+            audioMode: 'pcm',
+        });
+        expect(published).toEqual([]);
+    });
+
+    it('confirms the recent item once the first frame shows', async () => {
+        await TestBed.inject(NativePlaybackService).open(movie);
+        expect(confirmed).toEqual([]);
+
+        events.next({ type: 'first-frame', index: 0, ms: 5500 });
+
+        expect(confirmed).toEqual([{ streamUrls: [movie.streamUrl] }]);
+    });
+
+    it('confirms each live channel the queue shows', async () => {
+        void TestBed.inject(NativePlaybackService).openLiveQueue({
+            index: 0,
+            channels: [
+                { streamUrl: 'http://example.test/live/1.m3u8', title: 'One' },
+                { streamUrl: 'http://example.test/live/2.m3u8', title: 'Two' },
+            ],
+        });
+        await Promise.resolve();
+
+        events.next({ type: 'first-frame', index: 0, ms: 4600 });
+        events.next({ type: 'first-frame', index: 1, ms: 3400 });
+
+        expect(confirmed).toEqual([
+            { streamUrls: ['http://example.test/live/1.m3u8'] },
+            { streamUrls: ['http://example.test/live/2.m3u8'] },
+        ]);
     });
 
     it('publishes nothing for a stream without content info', async () => {

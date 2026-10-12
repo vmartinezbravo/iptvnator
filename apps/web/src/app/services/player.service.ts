@@ -10,6 +10,7 @@ import {
     VideoPlayer,
 } from '@iptvnator/shared/interfaces';
 import type { ExternalPlayerName } from '@iptvnator/shared/interfaces';
+import type { PortalLiveQueue } from '@iptvnator/portal/shared/util';
 import { NativePlaybackService } from './native-playback.service';
 import { SettingsStore } from './settings-store.service';
 
@@ -85,6 +86,18 @@ export class PlayerService {
         }
 
         return;
+    }
+
+    /**
+     * Live channels with zapping on the device player; any other player
+     * opens the chosen channel alone, as before.
+     */
+    async playLiveQueue(queue: PortalLiveQueue): Promise<number> {
+        if (this.settingsStore.player() === VideoPlayer.NativePlayer) {
+            return await this.nativePlayback.openLiveQueue(queue);
+        }
+        await this.openResolvedPlayback(queue.channels[queue.index]);
+        return queue.index;
     }
 
     /**

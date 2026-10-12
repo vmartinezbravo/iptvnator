@@ -113,6 +113,8 @@ import {
     XtreamLiveChannelNavigationService,
     type XtreamLiveChannelItem,
 } from './xtream-live-channel-navigation.service';
+import { playXtreamLiveQueue } from './xtream-live-native-queue';
+import { PlaybackHistoryGate } from '@iptvnator/playback/data-access';
 
 const LIVE_CHANNEL_SORT_STORAGE_KEY = 'xtream-live-channel-sort-mode';
 
@@ -162,6 +164,7 @@ export class LiveStreamLayoutComponent
     private readonly favoritesService = inject(FavoritesService);
     private readonly xtreamStore = inject(XtreamStore);
     private readonly recordRecentItem = injectXtreamRecentHistory();
+    private readonly playbackHistory = inject(PlaybackHistoryGate);
     readonly archiveContextKey = computed(() =>
         JSON.stringify([
             this.xtreamStore.currentPlaylist()?.id,
@@ -704,6 +707,19 @@ export class LiveStreamLayoutComponent
         if (this.usesEmbeddedPlayer() || !startPlayback) {
             return;
         }
+        const playback = this.activePlayback();
+        const queued =
+            playback &&
+            playXtreamLiveQueue(this.portalPlayer, {
+                playback,
+                chosen: item,
+                channels: this.getVisibleChannels(),
+                streamUrl: (c) => this.xtreamStore.constructStreamUrl(c),
+                leftOn: (c) => this.leaveDevicePlayerOn(c),
+            });
+        if (queued) {
+            return;
+        }
         this.xtreamStore.openPlayer(
             streamUrl,
             item.title ?? item.name ?? '',
@@ -851,6 +867,20 @@ export class LiveStreamLayoutComponent
         }
 
         this.playLive(channel, true, undefined, true);
+    }
+
+    /**
+     * The device player closed on a zapped-to channel: select and record it.
+     * It played (it was on screen), so the write is confirmed at once.
+     */
+    private leaveDevicePlayerOn(channel: XtreamLiveChannelItem): void {
+        const streamUrl = this.xtreamStore.constructStreamUrl(channel);
+        this.playLive(channel, false, undefined, true);
+        this.recordRecentItem(streamUrl, {
+            xtreamId: channel.xtream_id,
+            contentType: 'live',
+        });
+        this.playbackHistory.confirm({ streamUrls: [streamUrl] });
     }
 
     handleExternalFallbackRequest(request: PlaybackFallbackRequest): void {

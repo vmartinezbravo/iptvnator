@@ -22,6 +22,7 @@ describe('PlayerService', () => {
     };
     const nativePlayback = {
         open: jest.fn(),
+        openLiveQueue: jest.fn(),
     };
 
     beforeEach(() => {
@@ -50,6 +51,8 @@ describe('PlayerService', () => {
         service = TestBed.inject(PlayerService);
         dialog.open.mockReset();
         dataService.sendIpcEvent.mockReset();
+        nativePlayback.open.mockReset();
+        nativePlayback.openLiveQueue.mockReset();
         settingsStore.player.mockReset();
         settingsStore.player.mockReturnValue(VideoPlayer.VideoJs);
     });
@@ -69,6 +72,40 @@ describe('PlayerService', () => {
         expect(nativePlayback.open).toHaveBeenCalledWith(playback);
         expect(dataService.sendIpcEvent).not.toHaveBeenCalled();
         expect(service.isEmbeddedPlayer(VideoPlayer.NativePlayer)).toBe(false);
+    });
+
+    it('playLiveQueue uses the device player when it is chosen', async () => {
+        nativePlayback.openLiveQueue.mockResolvedValue(3);
+        settingsStore.player.mockReturnValue(VideoPlayer.NativePlayer);
+        const queue = {
+            index: 1,
+            channels: [
+                { streamUrl: 'http://example.test/live/1.m3u8', title: 'One' },
+                { streamUrl: 'http://example.test/live/2.m3u8', title: 'Two' },
+            ],
+        };
+
+        await expect(service.playLiveQueue(queue)).resolves.toBe(3);
+        expect(nativePlayback.openLiveQueue).toHaveBeenCalledWith(queue);
+    });
+
+    it('playLiveQueue opens the chosen channel directly with another player', async () => {
+        settingsStore.player.mockReturnValue(VideoPlayer.VLC);
+        dataService.sendIpcEvent.mockResolvedValue(undefined);
+        const queue = {
+            index: 1,
+            channels: [
+                { streamUrl: 'http://example.test/live/1.m3u8', title: 'One' },
+                { streamUrl: 'http://example.test/live/2.m3u8', title: 'Two' },
+            ],
+        };
+
+        await expect(service.playLiveQueue(queue)).resolves.toBe(1);
+        expect(nativePlayback.openLiveQueue).not.toHaveBeenCalled();
+        expect(dataService.sendIpcEvent).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ title: 'Two' })
+        );
     });
 
     it('identifies embedded players', () => {
