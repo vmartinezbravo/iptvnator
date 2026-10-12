@@ -606,5 +606,34 @@ Detalle y estimaciones en la tabla «Pendiente» de la sección anterior.
 | C   | Quitar Video.js, ArtPlayer y Shaka del build `android`                        | **Fase 6** (Tasks 6.2/6.3)                                          |
 | D2  | Conseguir caché de código para el JS de la app                                | Cuando Víctor lo pida; candidata natural de la fase 6               |
 | E   | Salida ES2022 y/o quitar zone.js                                              | Solo con OK de Víctor                                               |
-| F   | Repartir la normalización de películas y series para quitar las congelaciones | **Si las congelaciones molestan en el uso real**                    |
+| F   | Repartir la normalización de películas y series para quitar las congelaciones | No: Víctor no las nota en el uso real (2026-10-12)                  |
 | 2   | Catálogo por `fetch` del WebView                                              | Solo con OK expreso de Víctor (choca con la regla de CapacitorHttp) |
+
+## Prueba de Víctor en la Fire TV (fase 3) — 2026-10-12
+
+**Fase 3 confirmada por Víctor en el Stick:** un canal en directo y una
+película se ven y se oyen bien, la carga es rápida, y las congelaciones de la
+palanca F no se notan en el uso real (F queda sin aplicar).
+
+### Mando: el foco no sale de la barra superior — punto de partida de la Task 5.2
+
+Solo con el mando (D-pad):
+
+- El foco **se queda en la barra superior y en el menú lateral izquierdo**.
+- **No llega** a las categorías ni a las listas de canales, películas y series.
+
+Es lo esperado antes de la fase 5: todavía no hay navegación espacial (spec
+§6.4). Es el punto de partida de la **Task 5.2** (navegación espacial con el
+D-pad). Al cerrarla, el mando tiene que llegar a la lista de categorías y a las
+listas de canales, películas y series, y moverse por ellas.
+
+### Fluidez al navegar — pendiente de medir (fase 4 o 5)
+
+- La interfaz **se nota algo lenta y poco fluida al navegar**.
+- Pudo influir que `chrome://inspect` estaba abierto con el _screencast_, que
+  cuesta CPU en el Stick.
+- **Pendiente:** medir la fluidez sin inspector abierto (fotogramas por segundo
+  o tareas largas mientras se navega), con la importación ya terminada, y
+  proponer causas y soluciones con su coste en la fase que corresponda (Task
+  5.5 si son estilos o foco, fase 6 si es peso de JS o del render). Sin actuar
+  hasta entonces.
