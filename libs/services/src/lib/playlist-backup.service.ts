@@ -6,6 +6,7 @@ import { DatabaseService } from './database-electron.service';
 import { VodSourcePinService } from './vod-source-pin.service';
 import { PlaybackPositionService } from './playback-position.service';
 import { XtreamPendingRestoreService } from './xtream-pending-restore.service';
+import { XTREAM_BACKUP_USER_STATE } from './xtream-backup-user-state';
 import { ParentalLockService } from './parental-lock/parental-lock.service';
 import { removesParentalLocks } from './parental-lock/parental-lock-store.util';
 import {
@@ -78,6 +79,9 @@ export class PlaylistBackupService {
         XtreamPendingRestoreService
     );
     private readonly parentalLock = inject(ParentalLockService);
+    private readonly xtreamUserStateReader = inject(XTREAM_BACKUP_USER_STATE, {
+        optional: true,
+    });
     private backupImportTail?: Promise<void>;
 
     async exportBackup(): Promise<PlaylistBackupExportPayload> {
@@ -332,7 +336,14 @@ export class PlaylistBackupService {
             };
         }
         // An unavailable pin store is no opinion, never an authoritative [].
-        if (!this.hasElectronApi()) return entry;
+        // Without Electron the runtime's own reader (PWA, native shell) holds
+        // the favorites, recent items and positions.
+        if (!this.hasElectronApi()) {
+            const runtimeState = this.xtreamUserStateReader?.read(playlist._id);
+            return runtimeState
+                ? { ...entry, userState: { ...entry.userState, ...runtimeState } }
+                : entry;
+        }
 
         const [
             liveCategories,

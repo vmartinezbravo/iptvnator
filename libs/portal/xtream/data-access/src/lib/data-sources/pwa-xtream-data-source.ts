@@ -22,6 +22,7 @@ import {
     ParentalLockService,
     PlaylistsService,
     USER_DATA_STORAGE,
+    type XtreamBackupUserStateSnapshot,
 } from '@iptvnator/services';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -44,6 +45,11 @@ import {
     findCollectionItems,
 } from './pwa-collection-identity';
 import { PwaCollectionStorage } from './pwa-collection-storage';
+import {
+    exportPwaUserState,
+    mergePwaRestoreState,
+    type PwaUserStateStorage,
+} from './pwa-backup-user-state';
 
 /**
  * Storage keys for PWA persistence
@@ -1385,38 +1391,30 @@ export class PwaXtreamDataSource implements IXtreamDataSource {
         options?: XtreamOperationOptions
     ): Promise<void> {
         void options;
-        // Restore favorites
-        const favorites = this.collectionStorage.getFavoritesFromStorage();
-        favorites[playlistId] = restoreState.favorites
-            .map((item) =>
-                collectionKey({ id: item.xtreamId, type: item.contentType })
-            )
-            .filter((key): key is CollectionKey => key !== null);
-        this.collectionStorage.saveFavoritesToStorage(favorites);
-
-        // Restore recent items
-        const recentItems = this.collectionStorage.getRecentItemsFromStorage();
-        recentItems[playlistId] = [];
-        for (const item of restoreState.recentlyViewed) {
-            const id = collectionKey({
-                id: item.xtreamId,
-                type: item.contentType,
-            });
-            if (id !== null)
-                recentItems[playlistId].push({ id, viewedAt: item.viewedAt });
-        }
-        this.collectionStorage.saveRecentItemsToStorage(recentItems);
-
-        // Restore playback positions
-        this.clearPlaybackPositionsForPlaylist(playlistId);
-        const playbackPositions = this.getPlaybackPositionsFromStorage();
-        playbackPositions[playlistId] = restoreState.playbackPositions.map(
-            (position) => ({
-                ...position,
-                updatedAt: position.updatedAt ?? new Date().toISOString(),
-            })
+        // Adds what the backup holds and never removes (see
+        // mergePwaRestoreState): an empty or partial archive must not wipe
+        // the favorites, recent items or positions this device has.
+        const merged = mergePwaRestoreState(
+            playlistId,
+            this.readUserStateStorage(),
+            restoreState
         );
-        this.savePlaybackPositionsToStorage(playbackPositions);
+        this.collectionStorage.saveFavoritesToStorage(merged.favorites);
+        this.collectionStorage.saveRecentItemsToStorage(merged.recent);
+        this.savePlaybackPositionsToStorage(merged.positions);
+    }
+
+    /** The playlist's favorites, recent items and positions, for a backup. */
+    exportUserState(playlistId: string): XtreamBackupUserStateSnapshot {
+        return exportPwaUserState(playlistId, this.readUserStateStorage());
+    }
+
+    private readUserStateStorage(): PwaUserStateStorage {
+        return {
+            favorites: this.collectionStorage.getFavoritesFromStorage(),
+            recent: this.collectionStorage.getRecentItemsFromStorage(),
+            positions: this.getPlaybackPositionsFromStorage(),
+        };
     }
 
     // =========================================================================

@@ -2,6 +2,7 @@ import { inject, Provider } from '@angular/core';
 import {
     PLAYLIST_DELETE_CLEANUP,
     RuntimeCapabilitiesService,
+    XTREAM_BACKUP_USER_STATE,
 } from '@iptvnator/services';
 import { ElectronXtreamDataSource } from './electron-xtream-data-source';
 import { PwaXtreamDataSource } from './pwa-xtream-data-source';
@@ -41,6 +42,14 @@ export function provideXtreamDataSource(): Provider[] {
         {
             provide: XTREAM_DATA_SOURCE,
             useFactory: xtreamDataSourceFactory,
+        },
+        {
+            // Read by backups only where there is no Electron database.
+            provide: XTREAM_BACKUP_USER_STATE,
+            useFactory: () => {
+                const pwa = inject(PwaXtreamDataSource);
+                return { read: (id: string) => pwa.exportUserState(id) };
+            },
         },
         {
             provide: PLAYLIST_DELETE_CLEANUP,
