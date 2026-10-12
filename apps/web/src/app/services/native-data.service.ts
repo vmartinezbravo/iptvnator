@@ -2,7 +2,11 @@ import { inject, Injectable, InjectionToken, Injector } from '@angular/core';
 import { CapacitorHttp, HttpOptions } from '@capacitor/core';
 import { from, Observable } from 'rxjs';
 import { PlaylistsService } from '@iptvnator/services';
-import { Playlist, PortalDebugTransport } from '@iptvnator/shared/interfaces';
+import {
+    Playlist,
+    PortalDebugTransport,
+    XTREAM_PREFETCH_LIVE_CATALOGUE,
+} from '@iptvnator/shared/interfaces';
 import {
     buildNativeXtreamRequest,
     describeNativeConnectionFailure,
@@ -31,6 +35,12 @@ export const NATIVE_HTTP = new InjectionToken<NativeHttpClient>('NATIVE_HTTP', {
 
 const STALKER_UNSUPPORTED_STATUS = 501;
 
+interface LiveCataloguePrefetch {
+    readonly url: string;
+    readonly username: string;
+    readonly password: string;
+}
+
 /**
  * Data service of the native (Capacitor) shell. Everything except the
  * transport is the PWA runtime: storage, messages and error handling come
@@ -58,16 +68,9 @@ export class NativeDataService extends PwaService {
 
         let response: NativeHttpResponse;
         try {
-            const pending = payload.connectionTest
+            response = await (payload.connectionTest
                 ? this.nativeHttp.get(request)
-                : this.takePrefetchedOrGet(request);
-            if (
-                !payload.connectionTest &&
-                request.params?.['action'] === 'get_account_info'
-            ) {
-                this.prefetchLiveCatalogue(request);
-            }
-            response = await pending;
+                : this.takePrefetchedOrGet(request));
         } catch (failure) {
             if (payload.connectionTest) {
                 return {
@@ -92,18 +95,31 @@ export class NativeDataService extends PwaService {
         return interpretXtreamHttpResponse(response);
     }
 
+    override sendIpcEvent<T = unknown>(type: string, payload?: unknown): T {
+        if (type === XTREAM_PREFETCH_LIVE_CATALOGUE) {
+            this.prefetchLiveCatalogue(payload as LiveCataloguePrefetch);
+            return undefined as T;
+        }
+        return super.sendIpcEvent<T>(type, payload);
+    }
+
     /**
      * The import asks for account info, then categories, then live channels,
-     * each waiting for the previous one. Starting the last two with the
-     * account info lets Live open several seconds earlier on a Fire TV Stick;
-     * the import flow itself (and its handling of expired accounts) is
-     * unchanged, and an unused answer simply expires.
+     * each waiting for the previous one. The Xtream route session sends
+     * XTREAM_PREFETCH_LIVE_CATALOGUE for the source it opens, so the last two
+     * run while the account info is checked and Live opens several seconds
+     * earlier on a Fire TV Stick. The import flow itself (and its handling of
+     * expired accounts) is unchanged; an unused answer simply expires.
      */
-    private prefetchLiveCatalogue(request: HttpOptions): void {
-        const params = request.params as Record<string, string> | undefined;
-        if (!params?.['username'] || !params['password']) {
+    private prefetchLiveCatalogue(source: LiveCataloguePrefetch): void {
+        if (!source?.url || !source.username || !source.password) {
             return;
         }
+        const request = buildNativeXtreamRequest(source.url, {
+            username: source.username,
+            password: source.password,
+        });
+        const params = request.params as Record<string, string>;
         this.prefetch.start(
             request.url,
             { username: params['username'], password: params['password'] },

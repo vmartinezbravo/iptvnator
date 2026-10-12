@@ -9,7 +9,11 @@ import {
     XtreamPlaylistData,
     XtreamStore,
 } from '@iptvnator/portal/xtream/data-access';
-import { PlaylistMeta } from '@iptvnator/shared/interfaces';
+import { DataService, RuntimeCapabilitiesService } from '@iptvnator/services';
+import {
+    PlaylistMeta,
+    XTREAM_PREFETCH_LIVE_CATALOGUE,
+} from '@iptvnator/shared/interfaces';
 import { XtreamWorkspaceRouteSession } from './xtream-workspace-route-session.service';
 
 const PLAYLIST_ID = 'playlist-1';
@@ -92,6 +96,8 @@ describe('XtreamWorkspaceRouteSession', () => {
         null
     );
     let hasUsableOfflineCache = false;
+    let isNativeShell = false;
+    const dataService = { sendIpcEvent: jest.fn() };
 
     const playlistContext = {
         routeProvider,
@@ -246,6 +252,8 @@ describe('XtreamWorkspaceRouteSession', () => {
         xtreamStore.setSelectedContentType.mockClear();
         xtreamStore.setSelectedCategory.mockClear();
         xtreamStore.setContentInitBlockReason.mockClear();
+        isNativeShell = false;
+        dataService.sendIpcEvent.mockClear();
 
         await TestBed.configureTestingModule({
             providers: [
@@ -262,8 +270,49 @@ describe('XtreamWorkspaceRouteSession', () => {
                     provide: XtreamStore,
                     useValue: xtreamStore,
                 },
+                { provide: DataService, useValue: dataService },
+                {
+                    provide: RuntimeCapabilitiesService,
+                    useValue: {
+                        get isNativeShell() {
+                            return isNativeShell;
+                        },
+                    },
+                },
             ],
         });
+    });
+
+    it('asks the native transport to prefetch the live catalogue while the portal status is checked', async () => {
+        isNativeShell = true;
+        const portalStatusCheck = createDeferred<PortalStatusType>();
+        xtreamStore.checkPortalStatus.mockReturnValue(
+            portalStatusCheck.promise
+        );
+
+        TestBed.inject(XtreamWorkspaceRouteSession);
+        await flushEffects();
+
+        expect(dataService.sendIpcEvent).toHaveBeenCalledWith(
+            XTREAM_PREFETCH_LIVE_CATALOGUE,
+            {
+                url: 'http://localhost:3211',
+                username: 'user1',
+                password: 'secret',
+            }
+        );
+        portalStatusCheck.resolve('active');
+        await flushEffects();
+    });
+
+    it('does not ask for the live catalogue prefetch outside the native shell', async () => {
+        xtreamStore.checkPortalStatus.mockResolvedValue('active');
+
+        TestBed.inject(XtreamWorkspaceRouteSession);
+        await flushEffects();
+
+        expect(xtreamStore.initializeContent).toHaveBeenCalled();
+        expect(dataService.sendIpcEvent).not.toHaveBeenCalled();
     });
 
     it('initializes content for active import-driven routes', async () => {

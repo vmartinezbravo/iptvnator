@@ -11,6 +11,7 @@ import {
     CONNECTIVITY_GUARD_RESET,
     ERROR,
     STALKER_REQUEST,
+    XTREAM_PREFETCH_LIVE_CATALOGUE,
     XTREAM_REQUEST,
     XTREAM_RESPONSE,
 } from '@iptvnator/shared/interfaces';
@@ -241,11 +242,17 @@ describe('NativeDataService', () => {
             );
         });
 
-        it('prefetches categories and live channels when the account info is requested', async () => {
-            await xtreamRequest({ action: 'get_account_info' });
+        const prefetch = () =>
+            service.sendIpcEvent(XTREAM_PREFETCH_LIVE_CATALOGUE, {
+                url: 'http://host:8080/',
+                username: ' u ',
+                password: 'p&w',
+            });
+
+        it('prefetches categories and live channels when asked to', () => {
+            prefetch();
 
             expect(actionsRequested()).toEqual([
-                'get_account_info',
                 'get_live_categories',
                 'get_vod_categories',
                 'get_series_categories',
@@ -254,7 +261,7 @@ describe('NativeDataService', () => {
         });
 
         it('serves the live channels from the prefetch without a second request', async () => {
-            await xtreamRequest({ action: 'get_account_info' });
+            prefetch();
             const calls = nativeHttp.get.mock.calls.length;
 
             const result = await xtreamRequest({ action: 'get_live_streams' });
@@ -267,11 +274,8 @@ describe('NativeDataService', () => {
             });
         });
 
-        it('does not prefetch on a connection test', async () => {
-            await xtreamRequest(
-                { action: 'get_account_info' },
-                { connectionTest: true }
-            );
+        it('does not prefetch on portal status checks', async () => {
+            await xtreamRequest({ action: 'get_account_info' });
 
             expect(actionsRequested()).toEqual(['get_account_info']);
         });
@@ -283,7 +287,7 @@ describe('NativeDataService', () => {
                         ? Promise.reject({ code: 'SocketTimeoutException' })
                         : Promise.resolve({ status: 200, data: [] })
             );
-            await xtreamRequest({ action: 'get_account_info' });
+            prefetch();
             nativeHttp.get.mockResolvedValue({
                 status: 200,
                 data: [{ id: 7 }],

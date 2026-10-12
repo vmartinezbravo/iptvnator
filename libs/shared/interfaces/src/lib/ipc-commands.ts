@@ -99,6 +99,12 @@ export const EMBEDDED_MPV_FRAME_SOURCE_CHANGED =
 export const XTREAM_REQUEST = 'XTREAM_REQUEST';
 export const XTREAM_RESPONSE = 'XTREAM_RESPONSE';
 export const XTREAM_CANCEL_SESSION = 'XTREAM_CANCEL_SESSION';
+/**
+ * Native shell only: start the requests the Xtream import makes first
+ * (categories, live channels) for the source being opened, so they run while
+ * its portal status is checked. Other transports ignore it.
+ */
+export const XTREAM_PREFETCH_LIVE_CATALOGUE = 'XTREAM_PREFETCH_LIVE_CATALOGUE';
 
 // Stalker
 export const STALKER_REQUEST = 'STALKER_REQUEST';

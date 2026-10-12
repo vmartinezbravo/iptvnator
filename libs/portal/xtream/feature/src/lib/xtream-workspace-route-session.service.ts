@@ -16,7 +16,9 @@ import {
     XtreamPlaylistData,
     XtreamStore,
 } from '@iptvnator/portal/xtream/data-access';
+import { DataService, RuntimeCapabilitiesService } from '@iptvnator/services';
 import { PlaylistMeta } from '@iptvnator/shared/interfaces';
+import { prefetchNativeLiveCatalogue } from './native-live-catalogue-prefetch';
 
 function normalizeOptionalConnectionValue(
     value: string | null | undefined
@@ -212,6 +214,8 @@ export class XtreamWorkspaceRouteSession {
     private readonly playlistContext = inject(PlaylistContextFacade);
     private readonly router = inject(Router);
     private readonly xtreamStore = inject(XtreamStore);
+    private readonly dataService = inject(DataService);
+    private readonly runtime = inject(RuntimeCapabilitiesService);
 
     private syncInFlight = false;
     private syncPending = false;
@@ -320,6 +324,11 @@ export class XtreamWorkspaceRouteSession {
             section = this.syncRouteState(routeSection);
             if (isImportDrivenSection(section)) {
                 this.xtreamStore.prepareContentLoading(cacheScope);
+                prefetchNativeLiveCatalogue(
+                    this.runtime,
+                    this.dataService,
+                    routePlaylist
+                );
             }
 
             await this.xtreamStore.fetchXtreamPlaylist();
