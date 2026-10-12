@@ -6,6 +6,7 @@ import {
 import { PlaybackPositionData } from '@iptvnator/shared/interfaces';
 import { RuntimeCapabilitiesService } from './runtime-capabilities.service';
 import { PlaybackPositionRuntimeBridgeService } from './playback-position-runtime-bridge.service';
+import { PlaybackPositionUpdateFeed } from './playback-position-update-feed';
 
 const batchSaveItems: PlaybackPositionData[] = [
     createPosition(),
@@ -42,6 +43,7 @@ describe('PlaybackPositionRuntimeBridgeService', () => {
         injector = Injector.create({
             providers: [
                 PlaybackPositionRuntimeBridgeService,
+                PlaybackPositionUpdateFeed,
                 {
                     provide: RuntimeCapabilitiesService,
                     useValue: runtimeCapabilities,
@@ -304,6 +306,21 @@ describe('PlaybackPositionRuntimeBridgeService', () => {
 
         expect(service.onPlaybackPositionUpdate(callback)).toBe(unsubscribe);
         expect(onPlaybackPositionUpdate).toHaveBeenCalledWith(callback);
+    });
+
+    it('delivers native position updates through the bridge on the native shell', () => {
+        window.electron = undefined;
+        runtimeCapabilities.supportsPlaybackPositionUpdates = true;
+        const callback = jest.fn();
+        const position = createPosition();
+
+        const unsubscribe = service.onPlaybackPositionUpdate(callback);
+        injector.get(PlaybackPositionUpdateFeed).publish(position);
+        unsubscribe?.();
+        injector.get(PlaybackPositionUpdateFeed).publish(position);
+
+        expect(callback).toHaveBeenCalledTimes(1);
+        expect(callback).toHaveBeenCalledWith(position);
     });
 
     describe.each([

@@ -5,6 +5,7 @@ import {
     ExternalPlayerSession,
     VideoPlayer,
 } from '@iptvnator/shared/interfaces';
+import { NativePlaybackService } from './native-playback.service';
 import { SettingsStore } from './settings-store.service';
 import { PlayerService } from './player.service';
 
@@ -18,6 +19,9 @@ describe('PlayerService', () => {
     };
     const settingsStore = {
         player: jest.fn(() => VideoPlayer.VideoJs),
+    };
+    const nativePlayback = {
+        open: jest.fn(),
     };
 
     beforeEach(() => {
@@ -36,6 +40,10 @@ describe('PlayerService', () => {
                     provide: SettingsStore,
                     useValue: settingsStore,
                 },
+                {
+                    provide: NativePlaybackService,
+                    useValue: nativePlayback,
+                },
             ],
         });
 
@@ -44,6 +52,23 @@ describe('PlayerService', () => {
         dataService.sendIpcEvent.mockReset();
         settingsStore.player.mockReset();
         settingsStore.player.mockReturnValue(VideoPlayer.VideoJs);
+    });
+
+    it('routes to the native player when it is the chosen player', async () => {
+        const session = { id: 'native-1' } as ExternalPlayerSession;
+        nativePlayback.open.mockResolvedValue(session);
+        settingsStore.player.mockReturnValue(VideoPlayer.NativePlayer);
+        const playback = {
+            streamUrl: 'http://example.test/movie/1.mkv',
+            title: 'City Hunter',
+        };
+
+        await expect(service.openResolvedPlayback(playback)).resolves.toBe(
+            session
+        );
+        expect(nativePlayback.open).toHaveBeenCalledWith(playback);
+        expect(dataService.sendIpcEvent).not.toHaveBeenCalled();
+        expect(service.isEmbeddedPlayer(VideoPlayer.NativePlayer)).toBe(false);
     });
 
     it('identifies embedded players', () => {

@@ -80,7 +80,9 @@ export class ExternalPlaybackRecoveryCoordinator {
             this.recovery.fail(intent);
             return;
         }
-        this.recovery.close(session.player, session.id);
+        if (session.player !== 'native') {
+            this.recovery.close(session.player, session.id);
+        }
         const current = this.externalPlayback?.activeSession() ?? null;
         if (isLiveExternalSession(current)) {
             this.recovery.fail(intent);

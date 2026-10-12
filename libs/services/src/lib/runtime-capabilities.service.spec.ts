@@ -73,6 +73,19 @@ describe('RuntimeCapabilitiesService', () => {
         expect(service.supportsNativeExternalPlayer).toBe(false);
     });
 
+    it('supportsPlaybackPositionUpdates on the native shell', () => {
+        const capacitorWindow = window as unknown as {
+            Capacitor?: { isNativePlatform?: () => boolean };
+        };
+        testWindow.electron = undefined;
+        const service = new RuntimeCapabilitiesService();
+
+        expect(service.supportsPlaybackPositionUpdates).toBe(false);
+        capacitorWindow.Capacitor = { isNativePlatform: () => true };
+        expect(service.supportsPlaybackPositionUpdates).toBe(true);
+        delete capacitorWindow.Capacitor;
+    });
+
     it('supportsNativePlayer follows isNativeShell', () => {
         const capacitorWindow = window as unknown as {
             Capacitor?: { isNativePlatform?: () => boolean };

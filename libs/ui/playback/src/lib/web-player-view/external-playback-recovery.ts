@@ -91,7 +91,8 @@ export class ExternalPlaybackRecovery {
     }
 
     observe(session: ExternalPlayerSession | null): boolean {
-        if (!session) {
+        // The native shell's device player is no MPV/VLC recovery target.
+        if (!session || session.player === 'native') {
             return false;
         }
 

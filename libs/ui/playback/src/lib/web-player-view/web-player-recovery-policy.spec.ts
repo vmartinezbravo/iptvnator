@@ -6,7 +6,12 @@ import {
     type PlaybackRecommendationTarget,
 } from '@iptvnator/playback/util';
 import type { ExternalRecoveryStates } from './external-playback-recovery';
-import { createWebPlayerRecommendations } from './web-player-recovery-policy';
+import {
+    createWebPlayerRecommendations,
+    resolveRenderableWebPlayer,
+    toInlinePlaybackPlayer,
+} from './web-player-recovery-policy';
+import { VideoPlayer } from '@iptvnator/shared/interfaces';
 
 const DIAGNOSTIC: PlaybackDiagnostic = {
     code: PlaybackDiagnosticCode.UnsupportedContainer,
@@ -64,6 +69,19 @@ function targets(
         item.action === 'player' ? item.target : item.action
     );
 }
+
+describe('device player inside the web player view', () => {
+    // M3U lists still play inline: the device player choice shows
+    // there as the HTML5 player, the native shell's inline engine.
+    it('renders the device player choice with HTML5', () => {
+        expect(resolveRenderableWebPlayer(VideoPlayer.NativePlayer)).toBe(
+            VideoPlayer.Html5Player
+        );
+        expect(toInlinePlaybackPlayer(VideoPlayer.NativePlayer)).toBe(
+            InlinePlaybackPlayer.Html5
+        );
+    });
+});
 
 describe('createWebPlayerRecommendations external outcomes', () => {
     it('offers neither Video.js nor ArtPlayer where only the HTML5 player exists', () => {

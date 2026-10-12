@@ -10,6 +10,7 @@ import {
     VideoPlayer,
 } from '@iptvnator/shared/interfaces';
 import type { ExternalPlayerName } from '@iptvnator/shared/interfaces';
+import { NativePlaybackService } from './native-playback.service';
 import { SettingsStore } from './settings-store.service';
 
 @Injectable({
@@ -19,6 +20,7 @@ export class PlayerService {
     private dialog = inject(MatDialog);
     private dataService = inject(DataService);
     private settingsStore = inject(SettingsStore);
+    private nativePlayback = inject(NativePlaybackService);
 
     isEmbeddedPlayer(
         player = this.settingsStore.player() ?? VideoPlayer.VideoJs
@@ -67,6 +69,9 @@ export class PlayerService {
     ): Promise<ExternalPlayerSession | void> {
         const player = this.settingsStore.player() ?? VideoPlayer.VideoJs;
 
+        if (player === VideoPlayer.NativePlayer) {
+            return await this.nativePlayback.open(playback);
+        }
         if (player === VideoPlayer.MPV) {
             if (!hideExternalInfoDialog) {
                 this.showExternalPlayerInfoDialog();

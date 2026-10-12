@@ -71,13 +71,37 @@ describe('NativePlayer', () => {
                 code: 'ERROR_CODE_IO',
                 message: '<url>',
             },
-            { type: 'closed', index: 2, positionMs: 17719 },
+            { type: 'closed', index: 2, positionMs: 17719, durationMs: -1 },
         ]);
         expect(removed.sort()).toEqual([
             'audio',
             'closed',
             'error',
             'firstFrame',
+            'progress',
+        ]);
+    });
+
+    it('maps progress and closed with duration', async () => {
+        const { plugin, fire } = fakePlugin();
+        const seen: NativePlayerEvent[] = [];
+        const subscription = createNativePlayer(plugin)
+            .events()
+            .subscribe((e) => seen.push(e));
+        await Promise.resolve();
+
+        fire('progress', { index: 0, positionMs: 30000, durationMs: 5400000 });
+        fire('closed', { index: 0, positionMs: 42000, durationMs: -1 });
+        subscription.unsubscribe();
+
+        expect(seen).toEqual([
+            {
+                type: 'progress',
+                index: 0,
+                positionMs: 30000,
+                durationMs: 5400000,
+            },
+            { type: 'closed', index: 0, positionMs: 42000, durationMs: -1 },
         ]);
     });
 
@@ -110,7 +134,7 @@ describe('NativePlayer', () => {
         ]);
     });
 
-        it('play passes the request to the plugin unchanged', async () => {
+    it('play passes the request to the plugin unchanged', async () => {
         const { plugin } = fakePlugin();
         const request: NativePlayerRequest = {
             items: [

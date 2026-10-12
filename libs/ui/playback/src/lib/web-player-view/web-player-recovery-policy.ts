@@ -208,6 +208,7 @@ export function toInlinePlaybackPlayer(
         case VideoPlayer.VideoJs:
             return InlinePlaybackPlayer.VideoJs;
         case VideoPlayer.Html5Player:
+        case VideoPlayer.NativePlayer:
             return InlinePlaybackPlayer.Html5;
         case VideoPlayer.ArtPlayer:
             return InlinePlaybackPlayer.ArtPlayer;
@@ -223,12 +224,17 @@ export function toInlinePlaybackPlayer(
  * never launches them itself, so a mid-session saved-player switch to one
  * retains whatever engine is already mounted — the external choice applies
  * when the host starts the next playback. Every renderable player, including
- * Embedded MPV, is applied directly.
+ * Embedded MPV, is applied directly. The native shell's device player cannot
+ * render here either: what still plays inline there (M3U lists) uses
+ * HTML5, the shell's web engine.
  */
 export function resolveRenderableWebPlayer(
     configured: VideoPlayer,
     previous?: { value: VideoPlayer }
 ): VideoPlayer {
+    if (configured === VideoPlayer.NativePlayer) {
+        return VideoPlayer.Html5Player;
+    }
     const external =
         configured === VideoPlayer.MPV || configured === VideoPlayer.VLC;
     return external && previous ? previous.value : configured;

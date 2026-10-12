@@ -258,8 +258,12 @@ export class RuntimeCapabilitiesService {
         );
     }
 
+    /** MPV on desktop; the device player (through the app) on the native shell. */
     get supportsPlaybackPositionUpdates(): boolean {
-        return this.hasElectronMethod('onPlaybackPositionUpdate');
+        return (
+            this.hasElectronMethod('onPlaybackPositionUpdate') ||
+            this.isNativeShell
+        );
     }
 
     get supportsDownloads(): boolean {

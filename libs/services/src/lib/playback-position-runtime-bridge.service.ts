@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { PlaybackPositionData } from '@iptvnator/shared/interfaces';
+import { PlaybackPositionUpdateFeed } from './playback-position-update-feed';
 import { RuntimeCapabilitiesService } from './runtime-capabilities.service';
 
 type PlaybackPositionContentType = 'vod' | 'episode';
@@ -60,6 +61,7 @@ type PlaybackPositionRuntimeWindow = Window & {
 @Injectable({ providedIn: 'root' })
 export class PlaybackPositionRuntimeBridgeService {
     private readonly runtime = inject(RuntimeCapabilitiesService);
+    private readonly updateFeed = inject(PlaybackPositionUpdateFeed);
 
     get supportsStorage(): boolean {
         return this.runtime.supportsPlaybackPositionStorage;
@@ -317,7 +319,12 @@ export class PlaybackPositionRuntimeBridgeService {
             return undefined;
         }
 
-        return this.bridge?.onPlaybackPositionUpdate?.(callback);
+        // Electron's MPV reports through its bridge; the native shell's
+        // device player through the in-app feed.
+        const electronUpdates = this.bridge?.onPlaybackPositionUpdate;
+        return electronUpdates
+            ? electronUpdates(callback)
+            : this.updateFeed.subscribe(callback);
     }
 
     private get bridge(): PlaybackPositionElectronBridge | undefined {

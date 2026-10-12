@@ -84,7 +84,8 @@ export function readExternalPlayerErrorCode(
 
 export interface ExternalPlayerSession {
     id: string;
-    player: ExternalPlayerName;
+    /** 'native': the device player of the native shell, which Android cannot close or follow. */
+    player: ExternalPlayerName | 'native';
     status: ExternalPlayerSessionStatus;
     title: string;
     thumbnail?: string | null;

@@ -27,7 +27,14 @@ export type NativePlayerEvent =
           language: string | null;
       }
     | { type: 'error'; index: number; code: string; message: string }
-    | { type: 'closed'; index: number; positionMs: number };
+    /** Movies and episodes, every 30 s; `durationMs` is -1 while unknown. */
+    | {
+          type: 'progress';
+          index: number;
+          positionMs: number;
+          durationMs: number;
+      }
+    | { type: 'closed'; index: number; positionMs: number; durationMs: number };
 
 /**
  * A fullscreen player of the device. Platform-neutral on purpose: Android
@@ -48,6 +55,11 @@ export interface NativePlayerPluginApi {
         eventName: string,
         listener: (data: PluginEventData) => void
     ): Promise<{ remove: () => Promise<void> }>;
+}
+
+function durationMs(data: PluginEventData): number {
+    const value = data['durationMs'];
+    return typeof value === 'number' ? value : -1;
 }
 
 const PLUGIN_EVENTS: Record<
@@ -73,10 +85,17 @@ const PLUGIN_EVENTS: Record<
         code: String(d['code']),
         message: String(d['message'] ?? ''),
     }),
+    progress: (d) => ({
+        type: 'progress',
+        index: Number(d['index']),
+        positionMs: Number(d['positionMs']),
+        durationMs: durationMs(d),
+    }),
     closed: (d) => ({
         type: 'closed',
         index: Number(d['index']),
         positionMs: Number(d['positionMs']),
+        durationMs: durationMs(d),
     }),
 };
 
