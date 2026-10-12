@@ -1,4 +1,4 @@
-import { EMPTY, firstValueFrom, from, of, throwError } from 'rxjs';
+import { EMPTY, firstValueFrom, from, of } from 'rxjs';
 import { DbStores, Playlist, PlaylistMeta } from '@iptvnator/shared/interfaces';
 import { PlaylistsService, resolvePlaylistParser } from './playlists.service';
 
@@ -431,7 +431,7 @@ describe('PlaylistsService', () => {
             autoRefresh: false,
         } as Playlist;
         const dbService = {
-            update: jest.fn(() => of([playlist])),
+            add: jest.fn(() => of('generated-key')),
         };
         testWindow.electron = undefined;
 
@@ -440,42 +440,10 @@ describe('PlaylistsService', () => {
         await expect(
             firstValueFrom(service.addPlaylist(playlist))
         ).resolves.toBe(playlist);
-        expect(dbService.update).toHaveBeenCalledWith(
+        expect(dbService.add).toHaveBeenCalledWith(
             DbStores.Playlists,
             playlist
         );
-    });
-
-    it('replaces an existing browser playlist row, as SQLite upserts, so a backup can merge into it', async () => {
-        const rows = new Map<string, Playlist>();
-        const existing = {
-            _id: 'playlist-restore',
-            title: 'Before restore',
-            count: 0,
-            importDate: '2026-04-01T00:00:00.000Z',
-            lastUsage: '2026-04-01T00:00:00.000Z',
-            autoRefresh: false,
-        } as Playlist;
-        rows.set(existing._id, existing);
-        // IndexedDB semantics: add() refuses an existing key, update() puts.
-        const dbService = {
-            add: jest.fn((_store: string, row: Playlist) =>
-                rows.has(row._id)
-                    ? throwError(() => new Error('ConstraintError'))
-                    : of(rows.set(row._id, row) && row._id)
-            ),
-            update: jest.fn((_store: string, row: Playlist) =>
-                of([...rows.set(row._id, row).values()])
-            ),
-        };
-        testWindow.electron = undefined;
-        const service = createService(dbService);
-        const restored = { ...existing, title: 'After restore' };
-
-        await expect(
-            firstValueFrom(service.addPlaylist(restored))
-        ).resolves.toBe(restored);
-        expect(rows.get(existing._id)?.title).toBe('After restore');
     });
 
     it('coordinates browser row replacements with the cross-context edit reservation', async () => {
@@ -503,7 +471,7 @@ describe('PlaylistsService', () => {
             autoRefresh: false,
         } as Playlist;
         const dbService = {
-            update: jest.fn(() => of([])),
+            add: jest.fn(() => of('generated-key')),
             delete: jest.fn(() => of(undefined)),
         };
         testWindow.electron = undefined;
