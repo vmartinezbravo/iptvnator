@@ -42,6 +42,8 @@ atajos de teclado de escritorio) y cualquier dependencia que solo usen esas func
 - Antes de decir que algo funciona: `verification-before-completion` (build real + prueba en dispositivo).
 - Al cerrar cada fase: `requesting-code-review` y `finishing-a-development-branch`.
 - No avanzar a la siguiente fase sin que yo confirme que la actual funciona en la Fire TV.
+- Nunca hagas pruebas destructivas (restaurar, borrar, importar, resetear) sobre los datos reales del
+  Stick ni del PC sin pedírmelo antes y sin exportar antes una copia; usa datos de prueba siempre que se pueda.
 
 ## Excepciones del fork a AGENTS.md
 - Planes y diseños: `docs/PLAN-ANDROID.md` y `docs/superpowers/` (no `.plans/`).
