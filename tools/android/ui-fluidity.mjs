@@ -8,8 +8,11 @@
 // Usage:
 //   node tools/android/ui-fluidity.mjs [rounds=3] [--restart] [--only=a,b]
 //   node tools/android/ui-fluidity.mjs --profile   # CPU profile of 6 D-pad keys
+//   node tools/android/ui-fluidity.mjs --profile=category  # ... of 6 category switches
 //   node tools/android/ui-fluidity.mjs --trace     # main-thread time by phase
-// Scenarios: dpad-menu, category-switch, section-switch.
+//   --grep=<regex>  with --profile, only inclusive frames whose name matches
+//   --css="<rules>"  injects a style first (try a fix before coding it)
+// Scenarios: dpad-menu, category-switch, section-switch, channel-scroll.
 // Prints only numbers and minified function names: never sources, stream
 // URLs or other credentials.
 import { execFile, execFileSync } from 'node:child_process';
@@ -31,6 +34,7 @@ const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
 const rounds = Number(args.find((a) => /^\d+$/.test(a)) ?? 3);
 const only = args.find((a) => a.startsWith('--only='))?.slice(7).split(',');
+const css = args.find((a) => a.startsWith('--css='))?.slice(6);
 
 const median = (values) => {
     const s = values.filter((v) => typeof v === 'number').sort((a, b) => a - b);
@@ -80,13 +84,17 @@ async function connect() {
 // In-page recorder: __flStart() begins, __flStop() returns the stats.
 const PAGE_LIB = `(() => {
     window.__flStart = () => {
-        const s = { frames: [], longTasks: [], keys: [], running: true, start: performance.now() };
+        const s = { frames: [], longTasks: [], loafs: [], marks: [], keys: [], running: true, start: performance.now() };
         const tick = (t) => { if (s.running) { s.frames.push(t); requestAnimationFrame(tick); } };
         requestAnimationFrame(tick);
         s.observer = new PerformanceObserver((list) => {
             for (const e of list.getEntries()) s.longTasks.push(e.duration);
         });
         s.observer.observe({ type: 'longtask', buffered: false });
+        s.loafObserver = new PerformanceObserver((list) => {
+            for (const e of list.getEntries()) s.loafs.push([e.startTime, e.duration]);
+        });
+        s.loafObserver.observe({ type: 'long-animation-frame', buffered: false });
         s.onKey = (e) => s.keys.push(performance.now());
         document.addEventListener('keydown', s.onKey, true);
         window.__fl = s;
@@ -96,6 +104,7 @@ const PAGE_LIB = `(() => {
         const s = window.__fl;
         s.running = false;
         s.observer.disconnect();
+        s.loafObserver.disconnect();
         document.removeEventListener('keydown', s.onKey, true);
         const seconds = (performance.now() - s.start) / 1000;
         const gaps = s.frames.slice(1).map((f, i) => f - s.frames[i]);
@@ -103,6 +112,12 @@ const PAGE_LIB = `(() => {
             const after = s.frames.filter((f) => f > at);
             return after.length > 1 ? after[1] - at : null;
         }).filter((v) => v !== null).sort((a, b) => a - b);
+        // Per action (click mark): the longest animation frame that starts
+        // before the next action; median over actions.
+        const perAction = s.marks.map((at, i) => {
+            const end = s.marks[i + 1] ?? Infinity;
+            return Math.max(0, ...s.loafs.filter(([t]) => t >= at && t < end).map(([, d]) => d));
+        }).sort((a, b) => a - b);
         const pct = (arr, p) => arr.length ? Math.round(arr[Math.min(arr.length - 1, Math.floor(arr.length * p))]) : null;
         return {
             seconds: +seconds.toFixed(1),
@@ -115,8 +130,10 @@ const PAGE_LIB = `(() => {
             keys: s.keys.length,
             keyResponseMedianMs: pct(responses, 0.5),
             keyResponseP90Ms: pct(responses, 0.9),
+            actionFrameMedianMs: pct(perAction, 0.5),
         };
     };
+    window.__flMark = () => window.__fl.marks.push(performance.now());
     window.__sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     window.__go = async (path) => {
         history.pushState({}, '', path);
@@ -150,7 +167,21 @@ const PAGE_CATEGORY_SWITCH = `(async () => {
     await window.__toLive();
     const items = () => document.querySelectorAll('.context-panel .category-item');
     window.__flStart();
-    for (let i = 0; i < 12; i++) { items()[i]?.click(); await window.__sleep(700); }
+    for (let i = 0; i < 12; i++) { window.__flMark(); items()[i]?.click(); await window.__sleep(700); }
+    return window.__flStop();
+})()`;
+
+// Phase-4 scenario: the 9th Live category, 40 rows down and up (68 px, 150 ms).
+const PAGE_CHANNEL_SCROLL = `(async () => {
+    await window.__toLive();
+    document.querySelectorAll('.context-panel .category-item')[8]?.click();
+    await window.__sleep(1500);
+    const viewport = document.querySelector('cdk-virtual-scroll-viewport');
+    if (!viewport) return 'no-viewport';
+    viewport.scrollTop = 0;
+    await window.__sleep(500);
+    window.__flStart();
+    for (let i = 0; i < 80; i++) { viewport.scrollTop += i < 40 ? 68 : -68; await window.__sleep(150); }
     return window.__flStop();
 })()`;
 
@@ -158,6 +189,7 @@ const PAGE_SECTION_SWITCH = `(async () => {
     const base = await window.__base();
     window.__flStart();
     for (const section of ['vod', 'series', 'live', 'vod', 'series', 'live']) {
+        window.__flMark();
         history.pushState({}, '', base + '/' + section);
         dispatchEvent(new PopStateEvent('popstate', { state: {} }));
         await window.__sleep(1500);
@@ -186,16 +218,25 @@ const SCENARIOS = {
     },
     'category-switch': (page) => page.evaluate(PAGE_CATEGORY_SWITCH),
     'section-switch': (page) => page.evaluate(PAGE_SECTION_SWITCH),
+    'channel-scroll': (page) => page.evaluate(PAGE_CHANNEL_SCROLL),
 };
 
-async function profileKeys(page) {
+async function switchCategories(page) {
+    for (let i = 0; i < 6; i++) {
+        await page.evaluate(`document.querySelectorAll('.context-panel .category-item')[${i + 2}]?.click(), 'ok'`);
+        await sleep(800);
+    }
+}
+
+async function profile(page, what) {
     await page.evaluate(PAGE_LIB);
     await page.evaluate('window.__toLive()');
     await page.evaluate('window.__focusRail()');
     await page.send('Profiler.enable');
     await page.send('Profiler.setSamplingInterval', { interval: 200 });
     await page.send('Profiler.start');
-    await dpadKeys(6);
+    if (what === 'category') await switchCategories(page);
+    else await dpadKeys(6);
     await sleep(500);
     const { profile } = (await page.send('Profiler.stop')).result;
     const byNode = new Map(profile.nodes.map((n) => [n.id, n]));
@@ -211,8 +252,41 @@ async function profileKeys(page) {
     }
     const top = [...self].sort((a, b) => b[1] - a[1]).slice(0, 40);
     const total = [...self.values()].reduce((a, b) => a + b, 0);
-    console.log(`self JS time over 6 keys: ${Math.round(total)} ms`);
+    console.log(`self JS time over 6 ${what === 'category' ? 'category switches' : 'keys'}: ${Math.round(total)} ms`);
     for (const [label, ms] of top) console.log(`${ms.toFixed(1).padStart(7)} ms  ${label}`);
+    // Who calls the three most expensive frames (five callers up).
+    const parent = new Map();
+    for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id);
+    const name = (id) => {
+        const f = byNode.get(id).callFrame;
+        return `${f.functionName || '(anon)'}@${(f.url.split('/').pop() ?? '').split('?')[0].slice(0, 14)}:${f.columnNumber}`;
+    };
+    // Inclusive time: each sample counts once for every distinct frame on its stack.
+    const inclusive = new Map();
+    profile.samples.forEach((nodeId, i) => {
+        const seen = new Set();
+        for (let id = nodeId; id; id = parent.get(id)) {
+            const f = byNode.get(id).callFrame;
+            if (f.functionName && !f.functionName.startsWith('(')) seen.add(name(id));
+        }
+        for (const label of seen) inclusive.set(label, (inclusive.get(label) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000);
+    });
+    console.log('inclusive (named frames):');
+    const grep = args.find((a) => a.startsWith('--grep='))?.slice(7);
+    const rows = [...inclusive].filter(([l]) => l.length > 3 && (!grep || new RegExp(grep).test(l)));
+    for (const [label, ms] of rows.sort((a, b) => b[1] - a[1]).slice(0, 60)) console.log(`${ms.toFixed(1).padStart(7)} ms  ${label}`);
+    for (const [label] of top.slice(0, 3)) {
+        const chains = new Map();
+        for (const [nodeId, us] of dt) {
+            if (!label.startsWith(`${byNode.get(nodeId).callFrame.functionName || '(anonymous)'} @`)) continue;
+            const chain = [];
+            for (let id = parent.get(nodeId); id && chain.length < 5; id = parent.get(id)) chain.push(name(id));
+            const key = chain.join(' < ');
+            chains.set(key, (chains.get(key) ?? 0) + us / 1000);
+        }
+        console.log(`callers of ${label}:`);
+        for (const [chain, ms] of [...chains].sort((a, b) => b[1] - a[1]).slice(0, 4)) console.log(`  ${ms.toFixed(1).padStart(7)} ms  < ${chain}`);
+    }
 }
 
 async function traceKeys(page) {
@@ -246,12 +320,7 @@ async function traceKeys(page) {
     };
     await page.evaluate('window.__focusRail()');
     await run('dpad-key', () => dpadKeys(6));
-    await run('category-switch', async () => {
-        for (let i = 0; i < 6; i++) {
-            await page.evaluate(`document.querySelectorAll('.context-panel .category-item')[${i + 2}]?.click(), 'ok'`);
-            await sleep(800);
-        }
-    });
+    await run('category-switch', () => switchCategories(page));
 }
 
 if (flag('--restart')) {
@@ -262,7 +331,11 @@ if (flag('--restart')) {
 }
 const page = await connect();
 try {
-    if (flag('--profile')) await profileKeys(page);
+    if (css) {
+        await page.evaluate(`(() => { const s = document.createElement('style'); s.textContent = ${JSON.stringify(css)}; document.head.appendChild(s); return 'ok'; })()`);
+    }
+    const profileArg = args.find((a) => a.startsWith('--profile'));
+    if (profileArg) await profile(page, profileArg.split('=')[1]);
     else if (flag('--trace')) await traceKeys(page);
     else {
         const names = Object.keys(SCENARIOS).filter((n) => !only || only.includes(n));
@@ -286,7 +359,7 @@ try {
         console.log('medians', JSON.stringify(medians, null, 1));
         mkdirSync(OUT_DIR, { recursive: true });
         const file = `${OUT_DIR}/ui-fluidity-${Date.now()}.json`;
-        writeFileSync(file, JSON.stringify({ serial: SERIAL, rounds, results, medians }, null, 2));
+        writeFileSync(file, JSON.stringify({ serial: SERIAL, rounds, css, results, medians }, null, 2));
         console.log(`saved ${file}`);
     }
 } finally {
