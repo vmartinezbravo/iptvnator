@@ -224,6 +224,79 @@ describe('NativeDataService', () => {
         expect(playlist).toEqual({ _id: 'p1' });
     });
 
+    describe('live catalogue prefetch', () => {
+        const actionsRequested = () =>
+            nativeHttp.get.mock.calls.map(([options]) => options.params.action);
+
+        beforeEach(() => {
+            jest.spyOn(window, 'postMessage').mockImplementation(
+                () => undefined
+            );
+            nativeHttp.get.mockImplementation(
+                (options: { params: { action: string } }) =>
+                    Promise.resolve({
+                        status: 200,
+                        data: [{ from: options.params.action }],
+                    })
+            );
+        });
+
+        it('prefetches categories and live channels when the account info is requested', async () => {
+            await xtreamRequest({ action: 'get_account_info' });
+
+            expect(actionsRequested()).toEqual([
+                'get_account_info',
+                'get_live_categories',
+                'get_vod_categories',
+                'get_series_categories',
+                'get_live_streams',
+            ]);
+        });
+
+        it('serves the live channels from the prefetch without a second request', async () => {
+            await xtreamRequest({ action: 'get_account_info' });
+            const calls = nativeHttp.get.mock.calls.length;
+
+            const result = await xtreamRequest({ action: 'get_live_streams' });
+
+            expect(nativeHttp.get).toHaveBeenCalledTimes(calls);
+            expect(result).toEqual({
+                type: XTREAM_RESPONSE,
+                payload: [{ from: 'get_live_streams' }],
+                action: 'get_live_streams',
+            });
+        });
+
+        it('does not prefetch on a connection test', async () => {
+            await xtreamRequest(
+                { action: 'get_account_info' },
+                { connectionTest: true }
+            );
+
+            expect(actionsRequested()).toEqual(['get_account_info']);
+        });
+
+        it('asks again when the prefetched request failed', async () => {
+            nativeHttp.get.mockImplementation(
+                (options: { params: { action: string } }) =>
+                    options.params.action === 'get_live_streams'
+                        ? Promise.reject({ code: 'SocketTimeoutException' })
+                        : Promise.resolve({ status: 200, data: [] })
+            );
+            await xtreamRequest({ action: 'get_account_info' });
+            nativeHttp.get.mockResolvedValue({
+                status: 200,
+                data: [{ id: 7 }],
+            });
+
+            const result = await xtreamRequest({ action: 'get_live_streams' });
+
+            expect(result).toEqual(
+                expect.objectContaining({ payload: [{ id: 7 }] })
+            );
+        });
+    });
+
     it('fails URL playlist downloads with the HTTP status', async () => {
         nativeHttp.get.mockResolvedValue({ status: 404, data: 'missing' });
 
