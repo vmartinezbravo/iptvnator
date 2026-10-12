@@ -30,6 +30,14 @@ export const PLAYBACK_SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] =
             fallbackId: 'video-player',
         },
         {
+            id: 'native-audio-mode',
+            section: 'playback',
+            labelKey: 'SETTINGS.NATIVE_AUDIO_MODE_LABEL',
+            descriptionKey: 'SETTINGS.NATIVE_AUDIO_MODE_DESCRIPTION',
+            keywords: ['audio', 'dolby', 'passthrough', 'pcm', 'media3'],
+            fallbackId: 'video-player',
+        },
+        {
             id: 'player-ambient-mode',
             section: 'playback',
             labelKey: 'SETTINGS.PLAYER_AMBIENT_MODE',

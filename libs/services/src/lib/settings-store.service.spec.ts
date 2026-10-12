@@ -5,6 +5,7 @@ import { of, Subject } from 'rxjs';
 import {
     DashboardRailsSettings,
     Language,
+    reportsPlaybackFailures,
     Settings,
     StartupBehavior,
     STORE_KEY,
@@ -732,24 +733,59 @@ describe('SettingsStore runtime player', () => {
     }
 
     it('coerces stored non-HTML5 player on native shell', async () => {
-        const store = loadWith({ player: VideoPlayer.VideoJs }, true);
+        for (const player of [VideoPlayer.VideoJs, VideoPlayer.EmbeddedMpv]) {
+            const store = loadWith({ player }, true);
+            await store.loadSettings();
+            expect(store.player()).toBe(VideoPlayer.NativePlayer);
+        }
+    });
+
+    it('keeps HTML5 when chosen on the native shell', async () => {
+        const store = loadWith({ player: VideoPlayer.Html5Player }, true);
         await store.loadSettings();
+        expect(store.player()).toBe(VideoPlayer.Html5Player);
+        await store.updateSettings({ player: VideoPlayer.NativePlayer });
+        expect(store.player()).toBe(VideoPlayer.NativePlayer);
+        await store.updateSettings({ player: VideoPlayer.Html5Player });
         expect(store.player()).toBe(VideoPlayer.Html5Player);
     });
 
-    it('uses the HTML5 player on native shell when nothing is stored', async () => {
+    it('resolveRuntimePlayer falls back to the default for native outside the native shell', async () => {
+        const store = loadWith({ player: VideoPlayer.NativePlayer }, false);
+        await store.loadSettings();
+        expect(store.player()).toBe(VideoPlayer.VideoJs);
+        await store.updateSettings({ player: VideoPlayer.NativePlayer });
+        expect(store.player()).toBe(VideoPlayer.VideoJs);
+    });
+
+    it('defaults the native audio mode to auto', async () => {
+        const store = loadWith({ player: VideoPlayer.NativePlayer }, true);
+        await store.loadSettings();
+        expect(store.nativePlayerAudioMode()).toBe('auto');
+        await store.updateSettings({ nativePlayerAudioMode: 'pcm' });
+        expect(store.nativePlayerAudioMode()).toBe('pcm');
+    });
+
+    it('native player is neither embedded nor reports playback failures', async () => {
+        const store = loadWith({ player: VideoPlayer.NativePlayer }, true);
+        await store.loadSettings();
+        expect(store.isEmbeddedPlayer()).toBe(false);
+        expect(reportsPlaybackFailures(VideoPlayer.NativePlayer)).toBe(false);
+    });
+
+    it('uses the device player on native shell when nothing is stored', async () => {
         const store = loadWith(null, true);
         await store.loadSettings();
-        expect(store.player()).toBe(VideoPlayer.Html5Player);
+        expect(store.player()).toBe(VideoPlayer.NativePlayer);
     });
 
-    it('starts with the HTML5 player on native shell before settings load', () => {
+    it('starts with the device player on native shell before settings load', () => {
         const pending = new Subject<Partial<Settings> | null>();
         const store = loadWith(pending, true);
-        expect(store.player()).toBe(VideoPlayer.Html5Player);
+        expect(store.player()).toBe(VideoPlayer.NativePlayer);
     });
 
-    it('keeps the HTML5 player on native shell when settings fail to load', async () => {
+    it('keeps the device player on native shell when settings fail to load', async () => {
         const failing = new Subject<Partial<Settings> | null>();
         const consoleError = jest
             .spyOn(console, 'error')
@@ -760,17 +796,17 @@ describe('SettingsStore runtime player', () => {
         await load;
         consoleError.mockRestore();
         expect(store.storageFailure()).toBe('load');
-        expect(store.player()).toBe(VideoPlayer.Html5Player);
+        expect(store.player()).toBe(VideoPlayer.NativePlayer);
     });
 
-    it('keeps the HTML5 player when updateSettings asks for Video.js on native shell', async () => {
+    it('keeps the device player when updateSettings asks for Video.js on native shell', async () => {
         const store = loadWith(null, true);
         await store.loadSettings();
         await store.updateSettings({ player: VideoPlayer.VideoJs });
-        expect(store.player()).toBe(VideoPlayer.Html5Player);
+        expect(store.player()).toBe(VideoPlayer.NativePlayer);
         expect(storage.set).toHaveBeenLastCalledWith(
             STORE_KEY.Settings,
-            expect.objectContaining({ player: VideoPlayer.Html5Player })
+            expect.objectContaining({ player: VideoPlayer.NativePlayer })
         );
     });
 

@@ -14,6 +14,7 @@ import {
     DEFAULT_TMDB_SETTINGS,
     EpgViewMode,
     Language,
+    NativePlayerAudioMode,
     normalizeAppUpdateChannel,
     normalizeDashboardRailsSettings,
     normalizeEmbeddedMpvExtraOptions,
@@ -62,6 +63,7 @@ export function createSettingsForm(
 ) {
     const form = formBuilder.group({
         player: [VideoPlayer.VideoJs],
+        nativePlayerAudioMode: ['auto' as NativePlayerAudioMode],
         webPlayerSharedControls: true,
         playerAmbientMode: false,
         detailTrailerBackdrop: false,
@@ -175,6 +177,7 @@ export function createSettingsFromFormValue(
 
     return {
         player: value.player ?? VideoPlayer.VideoJs,
+        nativePlayerAudioMode: value.nativePlayerAudioMode ?? 'auto',
         webPlayerSharedControls: value.webPlayerSharedControls ?? true,
         playerAmbientMode: value.playerAmbientMode ?? false,
         detailTrailerBackdrop: value.detailTrailerBackdrop ?? false,

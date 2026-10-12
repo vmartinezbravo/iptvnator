@@ -141,7 +141,7 @@ export interface SettingsPlayerAvailability {
 /**
  * Built-in web players are always offered; the OS-backed ones only show up
  * when the current runtime can actually launch them. A native app shell
- * plays through HTML5 only.
+ * plays through the device player or HTML5.
  */
 export function buildSettingsPlayerOptions({
     supportsEmbeddedMpv,
@@ -149,9 +149,15 @@ export function buildSettingsPlayerOptions({
     isNativeShell,
 }: SettingsPlayerAvailability): SettingsPlayerOption[] {
     if (isNativeShell) {
-        return SETTINGS_EMBEDDED_PLAYER_OPTIONS.filter(
-            (option) => option.id === VideoPlayer.Html5Player
-        );
+        return [
+            {
+                id: VideoPlayer.NativePlayer,
+                labelKey: 'SETTINGS.PLAYER_NATIVE',
+            },
+            ...SETTINGS_EMBEDDED_PLAYER_OPTIONS.filter(
+                (option) => option.id === VideoPlayer.Html5Player
+            ),
+        ];
     }
 
     return [

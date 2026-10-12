@@ -85,6 +85,7 @@ export const DEFAULT_DASHBOARD_RAILS = {
 export const DEFAULT_SETTINGS = {
     player: VideoPlayer.VideoJs,
     webPlayerSharedControls: true,
+    nativePlayerAudioMode: 'auto',
     playerAmbientMode: false,
     detailTrailerBackdrop: false,
     playerUpNextRail: true,

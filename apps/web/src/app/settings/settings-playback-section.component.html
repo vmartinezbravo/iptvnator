@@ -44,6 +44,42 @@
                 </div>
             </div>
 
+            @if (isNativePlayerSelected()) {
+                <div class="setting-item" data-setting-id="native-audio-mode">
+                    <div class="setting-item__meta">
+                        <h4 id="native-audio-mode-label">
+                            {{ 'SETTINGS.NATIVE_AUDIO_MODE_LABEL' | translate }}
+                        </h4>
+                        <p>
+                            {{
+                                'SETTINGS.NATIVE_AUDIO_MODE_DESCRIPTION'
+                                    | translate
+                            }}
+                        </p>
+                    </div>
+                    <div class="setting-item__control">
+                        <mat-form-field
+                            class="settings-select"
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-select
+                                formControlName="nativePlayerAudioMode"
+                                aria-labelledby="native-audio-mode-label"
+                                data-test-id="select-native-audio-mode"
+                            >
+                                <mat-option value="auto">{{
+                                    'SETTINGS.NATIVE_AUDIO_MODE_AUTO' | translate
+                                }}</mat-option>
+                                <mat-option value="pcm">{{
+                                    'SETTINGS.NATIVE_AUDIO_MODE_PCM' | translate
+                                }}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                </div>
+            }
+
             <!-- The runtime note belongs to the choice it describes, and
                  only while that choice is made. -->
             @if (isDesktop() && isEmbeddedMpvSelected()) {

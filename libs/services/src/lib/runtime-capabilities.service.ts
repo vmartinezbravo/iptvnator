@@ -353,6 +353,11 @@ export class RuntimeCapabilitiesService {
         return this.isNativeShell;
     }
 
+    /** Native shell: a fullscreen player of the device (Media3 on Android). */
+    get supportsNativePlayer(): boolean {
+        return this.isNativeShell;
+    }
+
     get supportsExternalPlayerPathSettings(): boolean {
         return ['setMpvPlayerPath', 'setVlcPlayerPath'].every((methodName) =>
             this.hasElectronMethod(methodName)

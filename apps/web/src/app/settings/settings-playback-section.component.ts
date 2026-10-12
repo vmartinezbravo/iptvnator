@@ -117,6 +117,11 @@ export class SettingsPlaybackSectionComponent {
         return player === VideoPlayer.MPV || player === VideoPlayer.VLC;
     }
 
+    /** The device player exists only on the native shell's player list. */
+    isNativePlayerSelected(): boolean {
+        return this.form().value.player === VideoPlayer.NativePlayer;
+    }
+
     isEmbeddedMpvSelected(): boolean {
         return this.form().value.player === VideoPlayer.EmbeddedMpv;
     }

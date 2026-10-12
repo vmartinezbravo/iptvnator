@@ -14,7 +14,15 @@ export enum VideoPlayer {
     MPV = 'mpv',
     VLC = 'vlc',
     ArtPlayer = 'artplayer',
+    /** The device's own player (Media3 on Android). Native shell only. */
+    NativePlayer = 'native',
 }
+
+/**
+ * Audio of the device player: 'auto' sends Dolby to the TV or receiver
+ * when it takes it (passthrough); 'pcm' decodes it on the device.
+ */
+export type NativePlayerAudioMode = 'auto' | 'pcm';
 
 /**
  * Whether a failed stream on this player reaches the app at all.
@@ -132,6 +140,8 @@ export function normalizeDashboardRailsSettings(
  */
 export interface Settings {
     player: VideoPlayer;
+    /** Device player audio output; missing values mean 'auto'. */
+    nativePlayerAudioMode?: NativePlayerAudioMode;
     /**
      * Use IPTVnator's shared controls in HTML5, Video.js, and ArtPlayer.
      * Default ON: a missing value means the user never chose, and gets the

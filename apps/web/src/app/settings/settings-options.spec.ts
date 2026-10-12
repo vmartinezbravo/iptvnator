@@ -121,14 +121,14 @@ describe('buildSettingsSectionNavItems', () => {
 });
 
 describe('buildSettingsPlayerOptions', () => {
-    it('offers only the HTML5 player in a native shell', () => {
+    it('offers the device player first and HTML5 on the native shell', () => {
         expect(
             buildSettingsPlayerOptions({
-                supportsEmbeddedMpv: false,
+                supportsEmbeddedMpv: true,
                 supportsManagedExternalPlayers: false,
                 isNativeShell: true,
             }).map((option) => option.id)
-        ).toEqual([VideoPlayer.Html5Player]);
+        ).toEqual([VideoPlayer.NativePlayer, VideoPlayer.Html5Player]);
     });
 
     it('keeps every built-in web player outside a native shell', () => {

@@ -12,6 +12,7 @@ export const SETTINGS_CONTROL_SECTIONS: Readonly<Record<string, string>> = {
     stripCountryPrefix: 'general',
     portalConnectivityGuard: 'general',
     player: 'playback',
+    nativePlayerAudioMode: 'playback',
     streamFormat: 'playback',
     showCaptions: 'playback',
     webPlayerSharedControls: 'playback',

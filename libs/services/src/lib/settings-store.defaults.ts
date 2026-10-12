@@ -14,6 +14,7 @@ import {
 /** Defaults and boot-time helpers of `SettingsStore`, split out for size. */
 export const DEFAULT_SETTINGS: Settings = {
     player: VideoPlayer.VideoJs,
+    nativePlayerAudioMode: 'auto',
     webPlayerSharedControls: true,
     playerAmbientMode: false,
     detailTrailerBackdrop: false,
@@ -62,18 +63,23 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /**
- * The player this runtime may use: a native app shell plays through HTML5
- * only, whatever was stored or restored from a desktop backup.
+ * The player this runtime may use. A native app shell plays through the
+ * device player (default) or HTML5, whatever was stored or restored from a
+ * desktop backup; elsewhere the device player does not exist.
  */
 export function resolveRuntimePlayer(
     player: VideoPlayer | undefined,
     isNativeShell: boolean
 ): VideoPlayer {
     if (isNativeShell) {
-        return VideoPlayer.Html5Player;
+        return player === VideoPlayer.Html5Player
+            ? VideoPlayer.Html5Player
+            : VideoPlayer.NativePlayer;
     }
 
-    return player ?? DEFAULT_SETTINGS.player;
+    return player && player !== VideoPlayer.NativePlayer
+        ? player
+        : DEFAULT_SETTINGS.player;
 }
 
 /**

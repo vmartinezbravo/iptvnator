@@ -73,6 +73,19 @@ describe('RuntimeCapabilitiesService', () => {
         expect(service.supportsNativeExternalPlayer).toBe(false);
     });
 
+    it('supportsNativePlayer follows isNativeShell', () => {
+        const capacitorWindow = window as unknown as {
+            Capacitor?: { isNativePlatform?: () => boolean };
+        };
+        testWindow.electron = undefined;
+        const service = new RuntimeCapabilitiesService();
+
+        capacitorWindow.Capacitor = { isNativePlatform: () => true };
+        expect(service.supportsNativePlayer).toBe(true);
+        delete capacitorWindow.Capacitor;
+        expect(service.supportsNativePlayer).toBe(false);
+    });
+
     it('supportsProviderEpg is true in PWA without any EPG bridge', () => {
         testWindow.electron = undefined;
         const service = new RuntimeCapabilitiesService();
