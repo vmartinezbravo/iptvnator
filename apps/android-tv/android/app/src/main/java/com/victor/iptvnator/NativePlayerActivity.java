@@ -54,6 +54,8 @@ public class NativePlayerActivity extends AppCompatActivity {
     private final Handler mainThread = new Handler(Looper.getMainLooper());
 
     private ArrayList<String> urls;
+    private ArrayList<String> titles;
+    private PlayerErrorOverlay errorOverlay;
     private ChannelCursor cursor;
     private boolean isLive;
     private ExoPlayer player;
@@ -87,6 +89,8 @@ public class NativePlayerActivity extends AppCompatActivity {
             finish();
             return;
         }
+        titles = intent.getStringArrayListExtra(NativePlayerPlugin.EXTRA_TITLES);
+        errorOverlay = new PlayerErrorOverlay(findViewById(R.id.player_error));
         cursor = new ChannelCursor(urls.size(), intent.getIntExtra(NativePlayerPlugin.EXTRA_INDEX, 0));
         isLive = intent.getBooleanExtra(NativePlayerPlugin.EXTRA_IS_LIVE, false);
 
@@ -138,6 +142,7 @@ public class NativePlayerActivity extends AppCompatActivity {
 
             @Override
             public void onPlayerError(PlaybackException error) {
+                errorOverlay.showPlaybackError();
                 NativePlayerEvents.error(cursor.index(), error.getErrorCodeName(), error.getMessage());
             }
         });
@@ -201,6 +206,12 @@ public class NativePlayerActivity extends AppCompatActivity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (errorOverlay != null && errorOverlay.isShown() && PlayerErrorOverlay.isConfirmKey(event.getKeyCode())) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                openInExternalPlayer();
+            }
+            return true;
+        }
         int step = zapStep(event.getKeyCode());
         if (step != 0 && isLive && urls.size() > 1) {
             if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
@@ -229,6 +240,18 @@ public class NativePlayerActivity extends AppCompatActivity {
         play(step > 0 ? cursor.next() : cursor.previous(), 0);
     }
 
+    /** The error screen's way out: the same stream in VLC. */
+    private void openInExternalPlayer() {
+        int index = cursor.index();
+        String url = urls.get(index);
+        String title = titles != null && index < titles.size() ? titles.get(index) : null;
+        resolver.execute(() -> {
+            if (!ExternalPlayerLauncher.open(this, url, title)) {
+                mainThread.post(errorOverlay::showNoExternalPlayer);
+            }
+        });
+    }
+
     /** Resolves the redirects off the main thread, then starts the item. */
     private void play(int index, long startPositionMs) {
         int current = ++request;
@@ -236,6 +259,7 @@ public class NativePlayerActivity extends AppCompatActivity {
         audioDecoder = null;
         audioLanguage = null;
         audioTrackChosen = false;
+        errorOverlay.hide();
         player.stop();
         player.setTrackSelectionParameters(
             player

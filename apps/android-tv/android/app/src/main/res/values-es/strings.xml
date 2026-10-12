@@ -2,4 +2,6 @@
 <resources>
     <string name="webview_too_old">Tu Android System WebView (versión %1$s) es demasiado antigua. Actualízala desde la tienda de apps.</string>
     <string name="webview_too_old_exit">Salir</string>
+    <string name="native_player_error">No se puede reproducir. Pulsa OK para abrirlo en VLC.</string>
+    <string name="native_player_no_external">Instala VLC desde la tienda de apps.</string>
 </resources>

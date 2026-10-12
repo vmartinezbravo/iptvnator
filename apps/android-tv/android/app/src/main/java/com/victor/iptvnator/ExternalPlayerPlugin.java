@@ -1,19 +1,10 @@
 package com.victor.iptvnator;
 
-import android.content.ActivityNotFoundException;
-import android.content.ComponentName;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.net.Uri;
-import android.webkit.WebSettings;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Hands a stream URL to a player app of the device (VLC on Fire TV) with an
@@ -23,8 +14,6 @@ import java.util.List;
 @CapacitorPlugin(name = "ExternalPlayer")
 public class ExternalPlayerPlugin extends Plugin {
 
-    private static final int MAX_REDIRECTS = 5;
-
     @PluginMethod
     public void open(PluginCall call) {
         String url = call.getString("url");
@@ -33,49 +22,9 @@ public class ExternalPlayerPlugin extends Plugin {
             return;
         }
         // Plugin calls run off the main thread, so the redirect requests may
-        // block here. The browser agent gets this provider's proper redirect.
-        String playableUrl = StreamRedirects.resolve(
-            url,
-            WebSettings.getDefaultUserAgent(getContext()),
-            StreamRedirects.HTTP,
-            MAX_REDIRECTS
-        );
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.parse(playableUrl), "video/*");
-        String title = call.getString("title");
-        if (title != null && !title.isEmpty()) {
-            intent.putExtra("title", title);
-        }
-
-        List<ResolveInfo> handlers = getContext().getPackageManager().queryIntentActivities(
-            intent,
-            PackageManager.MATCH_DEFAULT_ONLY
-        );
-        ArrayList<ComponentName> placeholders = new ArrayList<>();
-        int players = 0;
-        for (ResolveInfo handler : handlers) {
-            String packageName = handler.activityInfo.packageName;
-            if (ExternalPlayerHandlers.isPlaceholder(packageName)) {
-                placeholders.add(new ComponentName(packageName, handler.activityInfo.name));
-            } else {
-                players++;
-            }
-        }
-
+        // block here.
         JSObject result = new JSObject();
-        if (players == 0) {
-            result.put("launched", false);
-            call.resolve(result);
-            return;
-        }
-        Intent chooser = Intent.createChooser(intent, title);
-        chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, placeholders.toArray(new ComponentName[0]));
-        try {
-            getActivity().startActivity(chooser);
-            result.put("launched", true);
-        } catch (ActivityNotFoundException error) {
-            result.put("launched", false);
-        }
+        result.put("launched", ExternalPlayerLauncher.open(getActivity(), url, call.getString("title")));
         call.resolve(result);
     }
 }

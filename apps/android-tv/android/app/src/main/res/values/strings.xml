@@ -6,5 +6,7 @@
     <string name="custom_url_scheme">com.victor.iptvnator</string>
     <string name="webview_too_old">Your Android System WebView (version %1$s) is too old. Update it from the app store.</string>
     <string name="webview_too_old_exit">Exit</string>
+    <string name="native_player_error">Can’t play this. Press OK to open it in VLC.</string>
+    <string name="native_player_no_external">Install VLC from the app store.</string>
 </resources>
 
