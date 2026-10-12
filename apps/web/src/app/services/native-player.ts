@@ -23,6 +23,8 @@ export type NativePlayerEvent =
           decoder: string | null;
           encoding: string;
           passthrough: boolean;
+          /** Language of the track that plays; null when it is not tagged. */
+          language: string | null;
       }
     | { type: 'error'; index: number; code: string; message: string }
     | { type: 'closed'; index: number; positionMs: number };
@@ -63,6 +65,7 @@ const PLUGIN_EVENTS: Record<
         decoder: typeof d['decoder'] === 'string' ? d['decoder'] : null,
         encoding: String(d['encoding']),
         passthrough: d['passthrough'] === true,
+        language: typeof d['language'] === 'string' ? d['language'] : null,
     }),
     error: (d) => ({
         type: 'error',

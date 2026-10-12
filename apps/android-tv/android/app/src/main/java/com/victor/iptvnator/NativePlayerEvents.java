@@ -28,13 +28,14 @@ final class NativePlayerEvents {
         send("firstFrame", data);
     }
 
-    static void audio(int index, String decoder, String encoding, boolean passthrough) {
+    static void audio(int index, String decoder, String encoding, boolean passthrough, String language) {
         JSObject data = new JSObject();
         data.put("index", index);
         // A plain null would drop the key; passthrough has no decoder.
         data.put("decoder", decoder != null ? decoder : JSONObject.NULL);
         data.put("encoding", encoding);
         data.put("passthrough", passthrough);
+        data.put("language", language != null ? language : JSONObject.NULL);
         send("audio", data);
     }
 

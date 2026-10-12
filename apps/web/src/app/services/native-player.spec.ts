@@ -55,6 +55,7 @@ describe('NativePlayer', () => {
                 decoder: 'OMX.dolby.eac3.decoder',
                 encoding: 'pcm16',
                 passthrough: false,
+                language: null,
             },
             {
                 type: 'audio',
@@ -62,6 +63,7 @@ describe('NativePlayer', () => {
                 decoder: null,
                 encoding: 'eac3',
                 passthrough: true,
+                language: null,
             },
             {
                 type: 'error',
@@ -79,7 +81,36 @@ describe('NativePlayer', () => {
         ]);
     });
 
-    it('play passes the request to the plugin unchanged', async () => {
+    it('maps the audio track language', async () => {
+        const { plugin, fire } = fakePlugin();
+        const seen: NativePlayerEvent[] = [];
+        const subscription = createNativePlayer(plugin)
+            .events()
+            .subscribe((e) => seen.push(e));
+        await Promise.resolve();
+
+        fire('audio', {
+            index: 0,
+            decoder: null,
+            encoding: 'eac3',
+            passthrough: true,
+            language: 'es',
+        });
+        fire('audio', {
+            index: 1,
+            encoding: 'eac3',
+            passthrough: true,
+            language: null,
+        });
+        subscription.unsubscribe();
+
+        expect(seen.map((e) => e.type === 'audio' && e.language)).toEqual([
+            'es',
+            null,
+        ]);
+    });
+
+        it('play passes the request to the plugin unchanged', async () => {
         const { plugin } = fakePlugin();
         const request: NativePlayerRequest = {
             items: [

@@ -11,12 +11,18 @@ import android.view.KeyEvent;
 import android.webkit.WebSettings;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.Tracks;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -28,6 +34,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.ui.PlayerView;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -58,6 +65,11 @@ public class NativePlayerActivity extends AppCompatActivity {
     private boolean closed;
     /** Audio decoder of the current channel; null while passing through. */
     private String audioDecoder;
+    /** Language of the audio track that plays; null when it is not tagged. */
+    private String audioLanguage;
+    /** Set once the default audio track of the current item is applied. */
+    private boolean audioTrackChosen;
+    private final String deviceLanguage = Util.normalizeLanguageCode(Locale.getDefault().getLanguage());
     private final Runnable reportProgress = this::reportProgress;
 
     @Override
@@ -84,12 +96,18 @@ public class NativePlayerActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onAudioInputFormatChanged(EventTime time, Format format, DecoderReuseEvaluation evaluation) {
+                audioLanguage = format.language;
+            }
+
+            @Override
             public void onAudioTrackInitialized(EventTime time, AudioSink.AudioTrackConfig config) {
                 NativePlayerEvents.audio(
                     cursor.index(),
                     audioDecoder,
                     AudioRouteReport.encodingName(config.encoding),
-                    AudioRouteReport.isPassthrough(config.encoding)
+                    AudioRouteReport.isPassthrough(config.encoding),
+                    audioLanguage
                 );
             }
         });
@@ -97,6 +115,11 @@ public class NativePlayerActivity extends AppCompatActivity {
             @Override
             public void onRenderedFirstFrame() {
                 reportFirstFrame();
+            }
+
+            @Override
+            public void onTracksChanged(Tracks tracks) {
+                chooseAudioTrack(tracks);
             }
 
             @Override
@@ -204,7 +227,17 @@ public class NativePlayerActivity extends AppCompatActivity {
         int current = ++request;
         firstFrameSeen = false;
         audioDecoder = null;
+        audioLanguage = null;
+        audioTrackChosen = false;
         player.stop();
+        player.setTrackSelectionParameters(
+            player
+                .getTrackSelectionParameters()
+                .buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                .setPreferredAudioLanguage(deviceLanguage)
+                .build()
+        );
         String url = urls.get(index);
         resolver.execute(() -> {
             if (userAgent == null) {
@@ -265,6 +298,23 @@ public class NativePlayerActivity extends AppCompatActivity {
         NativePlayerEvents.closed(cursor.index(), positionMs, PlaybackProgress.durationMs(player.getDuration()));
         player.release();
         player = null;
+    }
+
+    /**
+     * Media3 already prefers the device language; this also steps over a
+     * track marked as audio description. Applied once per item.
+     */
+    private void chooseAudioTrack(Tracks tracks) {
+        if (audioTrackChosen || player == null || !tracks.containsType(C.TRACK_TYPE_AUDIO)) {
+            return;
+        }
+        audioTrackChosen = true;
+        TrackSelectionOverride choice = AudioTrackPreference.override(tracks, deviceLanguage);
+        if (choice != null) {
+            player.setTrackSelectionParameters(
+                player.getTrackSelectionParameters().buildUpon().setOverrideForType(choice).build()
+            );
+        }
     }
 
     private void reportFirstFrame() {
