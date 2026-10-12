@@ -30,7 +30,7 @@ por Víctor el 2026-10-11). Léelo antes de cada fase.
 - Capacitor: `server.androidScheme: 'http'` y tráfico en claro permitido, fijados desde la primera APK, porque cambiarlos borra IndexedDB y localStorage.
 - **Prohibido** activar el parche global de CapacitorHttp (`plugins.CapacitorHttp.enabled` queda en `false`); se llama a `CapacitorHttp.request(...)` explícitamente.
 - Peticiones Xtream nativas con la cabecera `User-Agent: XTREAM_CLIENT_USER_AGENT` (`@iptvnator/shared/interfaces`, valor `VLC/3.0.18 LibVLC/3.0.18`).
-- Reproductor en el runtime nativo: solo `VideoPlayer.Html5Player`.
+- Reproductor en el runtime nativo: solo `VideoPlayer.Html5Player`. Desde la fase 4c, Media3 (`VideoPlayer.NativePlayer`) por defecto y HTML5 como alternativa (ver sus Global Constraints).
 - El comportamiento por plataforma se decide con `RuntimeCapabilitiesService`, nunca con `window.electron` ni `window.Capacitor` dentro de componentes.
 - Alias `@iptvnator/*`, límites de proyectos Nx, menos de 400 líneas por archivo de producción (objetivo 300).
 - No se aplican las puertas de upstream (revisiones Codex/Greptile, notas en `.changes/`).
@@ -693,6 +693,399 @@ canal, 5,1–5,9 s en zapping). VLC (10–12 s) es solo referencia.
   tres recorridos se planifica solo con su OK y en tareas nuevas: selección
   de reproductor, guardado de posiciones y recientes con los eventos
   `closed`, e interfaz de pistas de audio.
+
+---
+
+# Fase 4c — Integración de Media3 en la app
+
+Rama: `android/fase-4c-integracion`, desde `android/fase-4b-media3`.
+Aprobada por Víctor el 2026-10-12 tras ver los números de la 4b
+(`docs/android-measurements.md`, «Prototipo Media3»). Prueba de oído: La 1 FHD
+suena en `auto` (passthrough) y en `pcm`.
+
+**Goal:** en el runtime nativo, el directo, las películas y los episodios de
+Xtream se reproducen con Media3 a pantalla completa, guardando y retomando la
+posición, con «Abrir en VLC» como alternativa, y con la validación pendiente de
+la Task 4.5 repetida con este reproductor.
+
+**Architecture:** el reproductor se elige en `PlayerService.openResolvedPlayback`
+(la misma bifurcación que ya usan MPV y VLC): con `VideoPlayer.NativePlayer`
+la reproducción va a un `NativePlaybackService` que llama al plugin
+`NativePlayer` de la 4b. Como no es un reproductor «embebido», los tres
+recorridos (directo, película, episodio) toman su rama externa sin cambios.
+Las posiciones vuelven por los eventos `progress` y `closed` del plugin y se
+publican en el mismo canal que usa MPV en escritorio
+(`PlaybackPositionRuntimeBridgeService.onPlaybackPositionUpdate`), así que el
+store de Xtream y las fichas de serie y película las guardan y las muestran
+como ya hacen. El zapping del directo recibe la lista de canales visibles.
+
+**Decisiones de Víctor (2026-10-12):**
+
+- Media3 es el reproductor del runtime nativo para directo, películas y episodios.
+- Audio: `auto` (passthrough) por defecto; `pcm` como opción en Ajustes.
+- «Abrir en VLC» queda como alternativa.
+
+### Global Constraints (además de las del plan y de la 4b)
+
+- Sustituye a «Reproductor en el runtime nativo: solo `VideoPlayer.Html5Player`»:
+  en el runtime nativo los reproductores son `VideoPlayer.NativePlayer`
+  (`'native'`, por defecto) y `VideoPlayer.Html5Player` (alternativa en Ajustes,
+  para no quitar una función visible). Fuera del runtime nativo, `'native'`
+  nunca se usa.
+- La ventana del reproductor sigue **translúcida** (`AppTheme.Player`): una
+  actividad opaca hacía crecer la memoria gráfica del WebView hasta el cierre
+  por memoria (4b).
+- Nada de URLs ni credenciales en logs, eventos, resultados de medición ni
+  mensajes de commit. Media3 no escribe en logcat (`Log.LOG_LEVEL_OFF`). Al
+  comprobar logcat se **cuentan** líneas por etiqueta, no se imprimen.
+- Sin dependencias nuevas (Media3 1.11.1 ya está).
+- Sin cambios de comportamiento en escritorio ni en la PWA del navegador.
+- Archivos nuevos de menos de 300 líneas. `live-stream-layout.component.ts`,
+  `vod-details-playback.service.ts` y `serial-details-playback.service.ts` ya
+  superan las 400: no crecen más de 10 líneas cada uno; la lógica nueva va en
+  archivos propios.
+- Pruebas en el Stick sin restaurar, borrar ni importar datos. Guardar
+  posiciones al ver un episodio es uso normal; aun así, antes de las pruebas
+  de la Task 4c.7 se exporta una copia (Ajustes, como en la Task 4.4) sin
+  leer su contenido.
+- Umbrales del plan: elegir canal → primera imagen y zapping → primera imagen,
+  objetivo 3 s, límite 5 s (mediana de 3).
+
+### Review Focus
+
+1. **Atrás antes del primer fotograma** (aún resolviendo la redirección).
+   Esperado: un solo `closed`, y con posición 0 no se guarda ninguna
+   posición ni se pisa la anterior. Test: Task 4c.5,
+   `toPlaybackPosition returns null for a zero position`.
+2. **Categoría con ~600 canales.** Esperado: el intent no se acerca al límite
+   de Binder; viajan como mucho 200 canales alrededor del elegido y el zapping
+   funciona dentro de esa ventana. Test: Task 4c.6,
+   `buildLiveQueue keeps at most 200 channels centred on the chosen one`.
+3. **Copia de seguridad de Android (`player: 'native'`) restaurada en
+   escritorio.** Esperado: escritorio usa su reproductor por defecto. Test:
+   Task 4c.4, `resolveRuntimePlayer falls back to the default for native outside the native shell`.
+4. **Cierre por memoria con el reproductor delante.** Esperado: al volver a
+   abrir la app no se reproduce el canal antiguo sin que nadie escuche; se
+   pierden como mucho 30 s de posición. Test: Task 4c.2,
+   `doesNotReplayARestoredLaunch`, más la prueba con `kill -9` de la Task 4c.7.
+5. **Duración desconocida** (directo, mkv sin índice: Media3 da
+   `C.TIME_UNSET`). Esperado: la posición se guarda sin `durationSeconds`.
+   Test: Task 4c.5, `toPlaybackPosition omits an unknown duration`.
+
+### Task 4c.1: Cierre inmediato con Atrás, fin del contenido y progreso
+
+**Files:**
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/PlaybackProgress.java`
+- Modify: `NativePlayerActivity.java`, `NativePlayerEvents.java`
+- Test: `apps/android-tv/android/app/src/test/java/com/victor/iptvnator/PlaybackProgressTest.java`
+
+**Interfaces:**
+- Consumes: actividad y eventos de la 4b.
+- Produces:
+  - `PlaybackProgress.durationMs(long media3Duration)`: devuelve `-1` para
+    `C.TIME_UNSET` o valores negativos; si no, el valor.
+  - `PlaybackProgress.INTERVAL_MS = 30_000`.
+  - `closed { index, positionMs, durationMs }` (`durationMs` es `-1` si se
+    desconoce). Se emite **una vez**, en este orden de preferencia: al pulsar
+    Atrás (antes de `finish()`), al terminar un VOD (`Player.STATE_ENDED`,
+    con `positionMs = durationMs`) o en `onStop` (Inicio, VLC delante).
+    El reproductor se libera en el mismo momento, no en `onDestroy`.
+  - `progress { index, positionMs, durationMs }` cada `INTERVAL_MS` mientras
+    un VOD reproduce (`isLive` falso); nunca en directo.
+
+- [ ] **Step 1: Tests** `PlaybackProgressTest`:
+  `mapsAnUnsetDurationToMinusOne`, `keepsAKnownDuration`. Comprueba que fallan
+  (`corepack pnpm nx run android-tv:test-native`).
+- [ ] **Step 2: Implementar.** Un `Handler` del hilo principal programa
+  `progress`; se cancela al cerrar. Tests nativos en verde y
+  `assemble-debug` compila.
+- [ ] **Step 3: Commit** `feat(android): close the native player at Back and report progress`.
+
+### Task 4c.2: Recreación tras un cierre por memoria y logs de Media3
+
+**Files:**
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/NativePlayerLaunch.java`
+- Modify: `NativePlayerActivity.java`, `NativePlayerPlugin.java`
+- Test: `apps/android-tv/android/app/src/test/java/com/victor/iptvnator/NativePlayerLaunchTest.java`
+
+**Interfaces:**
+- Produces:
+  - `NativePlayerLaunch.shouldPlay(boolean restored, int intentFlags)`: falso
+    si `restored` (hay `savedInstanceState`) o si el intent lleva
+    `Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY`; verdadero en otro caso. Si
+    es falso, `onCreate` hace `finish()` sin crear el reproductor ni emitir
+    eventos: tras un cierre por memoria nadie escucha en el WebView y la
+    lista del intent es antigua.
+  - `NativePlayerLaunch.silenceMedia3Logs()`: `androidx.media3.common.util.Log.setLogLevel(Log.LOG_LEVEL_OFF)`.
+    Se llama en `NativePlayerPlugin.load()` y al principio de
+    `NativePlayerActivity.onCreate` (tras un cierre por memoria la actividad
+    puede crearse antes que el plugin). Los mensajes de error de Media3
+    pueden citar el servidor.
+
+- [ ] **Step 1: Tests** `NativePlayerLaunchTest`: `playsAFreshLaunch`,
+  `doesNotReplayARestoredLaunch`, `doesNotReplayALaunchFromRecents`,
+  `silencesMedia3Logs` (`Log.getLogLevel() == Log.LOG_LEVEL_OFF`). Comprueba
+  que fallan.
+- [ ] **Step 2: Implementar.** Tests nativos en verde.
+- [ ] **Step 3: Commit** `fix(android): never replay a stale player launch and keep Media3 out of logcat`.
+
+### Task 4c.3: «Abrir en VLC» desde el reproductor
+
+**Files:**
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/ExternalPlayerLauncher.java`
+- Modify: `ExternalPlayerPlugin.java` (pasa a usar el lanzador), `NativePlayerActivity.java`
+- Modify: `res/layout/activity_native_player.xml` (un `TextView` de error, oculto)
+- Create: `res/values/strings.xml` (si no existe, o añade las claves) y `res/values-es/strings.xml`
+
+**Interfaces:**
+- Produces:
+  - `ExternalPlayerLauncher.open(Activity activity, String url, String title): boolean`.
+    Es el cuerpo actual de `ExternalPlayerPlugin.open` (redirección resuelta
+    con el UA del WebView, `video/*`, sin el reproductor de relleno de Fire OS,
+    selector) y devuelve si se lanzó. Bloquea por la redirección: se llama
+    fuera del hilo principal.
+  - En la actividad, `onPlayerError` muestra el `TextView` con
+    `native_player_error` y el evento `error` sigue saliendo como en la 4b.
+    Con el error visible, OK (`KEYCODE_DPAD_CENTER`, `KEYCODE_ENTER`) abre el
+    elemento actual en VLC; en directo, arriba/abajo siguen cambiando de canal
+    y ocultan el error. Si no hay ningún reproductor, el texto pasa a
+    `native_player_no_external`.
+  - Textos: `native_player_error` = «No se puede reproducir. Pulsa OK para
+    abrirlo en VLC.» (en: "Can't play this. Press OK to open it in VLC.");
+    `native_player_no_external` = «Instala VLC desde la tienda de apps.»
+    (en: "Install VLC from the app store.").
+
+- [ ] **Step 1: Implementar.** La lógica pura ya la cubren
+  `ExternalPlayerHandlersTest` y `StreamRedirectsTest`; el plugin
+  `ExternalPlayer` mantiene su contrato (`{ launched }`). Tests nativos en
+  verde y `assemble-debug` compila.
+- [ ] **Step 2: Verificar en el Stick.** Lanzar desde DevTools una lista con
+  un elemento cuya URL no existe en el servidor (puerto o ruta inventados,
+  sin credenciales reales). Expected: aparece el texto, OK abre VLC, y al
+  volver de VLC la app sigue cargada y llega un `closed`.
+- [ ] **Step 3: Commit** `feat(android): offer VLC from the native player when a stream fails`.
+
+### Task 4c.4: Reproductor y modo de audio en Ajustes
+
+**Files:**
+- Modify: `libs/shared/interfaces/src/lib/settings.interface.ts`
+  (`VideoPlayer.NativePlayer = 'native'`; `nativePlayerAudioMode` en la interfaz de ajustes)
+- Modify: `libs/services/src/lib/settings-store.defaults.ts` (`resolveRuntimePlayer`, valor por defecto)
+- Modify: `libs/services/src/lib/runtime-capabilities.service.ts`
+- Modify: `apps/web/src/app/settings/settings-options.ts`
+- Modify: `apps/web/src/app/settings/settings-playback-section.component.html` / `.ts`
+- Modify: `apps/web/src/assets/i18n/*.json` (texto español en `es.json`, inglés en el resto)
+- Test: `settings-store.service.spec.ts`, `runtime-capabilities.service.spec.ts`, `settings-options.spec.ts` (o el spec que hoy cubre `buildSettingsPlayerOptions`)
+
+**Interfaces:**
+- Produces:
+  - `RuntimeCapabilitiesService.supportsNativePlayer`, que vale `isNativeShell`.
+  - `resolveRuntimePlayer(player, isNativeShell)`: en el runtime nativo
+    devuelve `player` si es `NativePlayer` o `Html5Player` y `NativePlayer` en
+    cualquier otro caso (incluido `undefined`); fuera de él, `'native'` pasa a
+    `DEFAULT_SETTINGS.player`.
+  - `buildSettingsPlayerOptions` con `isNativeShell` ofrece
+    `[NativePlayer, Html5Player]`, en ese orden.
+  - Ajuste `nativePlayerAudioMode: 'auto' | 'pcm'`, por defecto `'auto'`,
+    visible solo con `supportsNativePlayer` y `player === NativePlayer`.
+  - Claves: `SETTINGS.PLAYER_NATIVE` «Reproductor del dispositivo (Media3)»,
+    `SETTINGS.NATIVE_AUDIO_MODE_LABEL` «Salida de audio»,
+    `SETTINGS.NATIVE_AUDIO_MODE_AUTO` «Automática (Dolby al receptor)»,
+    `SETTINGS.NATIVE_AUDIO_MODE_PCM` «PCM (decodificar en el dispositivo)»,
+    `SETTINGS.NATIVE_AUDIO_MODE_DESCRIPTION` «Elige PCM si tu tele o tu receptor no suena con Dolby.»
+  - `reportsPlaybackFailures(VideoPlayer.NativePlayer)` es falso y
+    `isEmbeddedPlayer()` es falso para `NativePlayer` (ya lo son por no estar
+    en sus listas; los tests lo fijan).
+
+- [ ] **Step 1: Tests:**
+  - `coerces stored non-HTML5 player on native shell` (Review Focus 4 del
+    plan) cambia su esperado: un ajuste `'videojs'` o `'embedded-mpv'` en el
+    runtime nativo pasa a `NativePlayer`;
+  - `keeps HTML5 when chosen on the native shell`;
+  - `resolveRuntimePlayer falls back to the default for native outside the native shell`;
+  - `supportsNativePlayer follows isNativeShell`;
+  - `offers the device player first and HTML5 on the native shell`;
+  - `defaults the native audio mode to auto`;
+  - `native player is neither embedded nor reports playback failures`.
+
+  Comprueba que fallan.
+- [ ] **Step 2: Implementar.** `corepack pnpm nx affected -t test` y
+  `corepack pnpm nx lint web` en verde.
+- [ ] **Step 3: Commit** `feat(settings): device player and audio output on the native shell`.
+
+### Task 4c.5: Películas y episodios con Media3, posición guardada y retomada
+
+**Files:**
+- Create: `libs/services/src/lib/playback-position-update-feed.ts`
+- Modify: `libs/services/src/lib/playback-position-runtime-bridge.service.ts`, `runtime-capabilities.service.ts`, `libs/services/src/index.ts`
+- Modify: `libs/shared/interfaces/src/lib/external-player-session.interface.ts`
+- Modify: `apps/web/src/app/services/native-player.ts` (evento `progress`, `durationMs` en `closed`)
+- Create: `apps/web/src/app/services/native-playback-position.ts`
+- Create: `apps/web/src/app/services/native-playback.service.ts`
+- Modify: `apps/web/src/app/services/player.service.ts`
+- Test: `playback-position-update-feed.spec.ts`, `playback-position-runtime-bridge.service.spec.ts`, `native-player.spec.ts`, `native-playback-position.spec.ts`, `native-playback.service.spec.ts`, `player.service.spec.ts`
+
+**Interfaces:**
+- Consumes: eventos de la Task 4c.1; `supportsNativePlayer` y
+  `nativePlayerAudioMode` de la 4c.4.
+- Produces:
+  - `PlaybackPositionUpdateFeed` (root): `publish(data: PlaybackPositionData): void`
+    y `subscribe(callback: (data: PlaybackPositionData) => void): () => void`.
+  - `RuntimeCapabilitiesService.supportsPlaybackPositionUpdates` vale
+    `hasElectronMethod('onPlaybackPositionUpdate') || isNativeShell`; el
+    puente usa Electron si existe y, si no, el feed.
+  - `NativePlayerEvent` suma `{ type: 'progress'; index; positionMs; durationMs }`
+    y `closed` lleva `durationMs`.
+  - `ExternalPlayerSession.player: ExternalPlayerName | 'native'`. Las
+    funciones que reciben `ExternalPlayerName` (recuperación de MPV/VLC)
+    ignoran las sesiones `'native'`; nunca les llegan, porque solo Electron
+    publica sesiones en `ExternalPlaybackService`.
+  - `toPlaybackPosition(contentInfo: PlayerContentInfo, positionMs: number, durationMs: number): PlaybackPositionData | null`:
+    `null` si `positionMs <= 0`; segundos con `Math.floor`; sin
+    `durationSeconds` si `durationMs < 0`; `updatedAt` ISO.
+  - `NativePlaybackService.open(playback: ResolvedPortalPlayback): Promise<ExternalPlayerSession>`:
+    llama a `NATIVE_PLAYER.play({ items: [{ url: playback.streamUrl, title: playback.title }], index: 0, isLive: !!playback.isLive, startPositionMs: (playback.startTime ?? 0) * 1000, audioMode })`
+    y resuelve una sesión `{ player: 'native', status: 'opened', canClose: false, … }`
+    como la de VLC en `native-data.service.ts`, para que
+    `settleOwnedExternalLaunch` y el cambio de fuente la den por iniciada. Con
+    `contentInfo`, cada `progress` y el `closed` de esa reproducción pasan por
+    `toPlaybackPosition` y van a `PlaybackPositionUpdateFeed.publish` con
+    `playlistId`. Si el plugin rechaza, la promesa rechaza (el flujo actual
+    muestra el fallo).
+  - `PlayerService.openResolvedPlayback`: con `VideoPlayer.NativePlayer`
+    delega en `NativePlaybackService.open`.
+
+- [ ] **Step 1: Tests:**
+  - `publishes to every subscriber until it unsubscribes` (feed);
+  - `delivers native position updates through the bridge on the native shell`;
+  - `maps progress and closed with duration` (`native-player.spec.ts`);
+  - `toPlaybackPosition returns null for a zero position`;
+  - `toPlaybackPosition omits an unknown duration`;
+  - `toPlaybackPosition keeps the episode identity` (serie, temporada, episodio de `contentInfo`);
+  - `open plays one item from the resume position with the chosen audio mode`;
+  - `open resolves an opened native session`;
+  - `publishes the position on progress and on close`;
+  - `ignores events of an earlier playback` (una segunda `open` deja de publicar las posiciones de la primera);
+  - `routes to the native player when it is the chosen player` (`player.service.spec.ts`).
+
+  Comprueba que fallan.
+- [ ] **Step 2: Implementar.** `corepack pnpm nx affected -t test` y lint en verde.
+- [ ] **Step 3: Verificar en el Stick.** Película: Reproducir, ver 2 min,
+  Atrás; la ficha muestra «Reanudar» y al reanudar la imagen empieza a ±5 s
+  de donde se dejó. Lo mismo con un episodio.
+- [ ] **Step 4: Commit** `feat(android): play movies and episodes with Media3 and keep their position`.
+
+### Task 4c.6: Directo con Media3 y zapping por la lista visible
+
+**Files:**
+- Modify: `libs/portal/shared/util/src/lib/portal-player.ts`
+- Create: `libs/portal/xtream/feature/src/lib/live-stream-layout/xtream-live-native-queue.ts`
+- Modify: `libs/portal/xtream/feature/src/lib/live-stream-layout/live-stream-layout.component.ts` (rama externa de `playLive`, ≤ 10 líneas)
+- Modify: `apps/web/src/app/services/native-playback.service.ts`, `player.service.ts`
+- Test: `xtream-live-native-queue.spec.ts`, `native-playback.service.spec.ts`, `player.service.spec.ts`
+
+**Interfaces:**
+- Consumes: `NativePlaybackService` (4c.5).
+- Produces:
+  - En `portal-player.ts`:
+    ```ts
+    export interface PortalLiveQueue {
+        channels: readonly ResolvedPortalPlayback[];
+        index: number;
+    }
+    // PortalPlayer:
+    playLiveQueue?(queue: PortalLiveQueue): Promise<number>;
+    ```
+    Resuelve con el índice del canal que estaba en pantalla al cerrar.
+  - `PlayerService.playLiveQueue`: con `NativePlayer`, `NativePlaybackService.openLiveQueue(queue)`
+    (`items` de todos los canales, `isLive: true`, resuelve con el `index`
+    del `closed`); con otro reproductor, abre `channels[index]` por
+    `openResolvedPlayback` y resuelve `index` enseguida.
+  - `buildLiveQueue<T>(channels: readonly T[], chosen: number, toPlayback: (item: T) => ResolvedPortalPlayback, max = 200): { queue: PortalLiveQueue; items: readonly T[] }`:
+    ventana de como mucho `max` canales centrada en `chosen` (recortada en
+    los extremos), con `index` relativo a la ventana.
+  - En `playLive`, rama externa con `startPlayback`: si el reproductor tiene
+    `playLiveQueue`, se construye la cola con los canales visibles
+    (`channelNavigation.remoteChannels()`, o solo el elegido si está vacía)
+    y, al resolver, si el índice cambió, la lista marca el canal en el que
+    se salió (`playLive(items[index], false, undefined, true)`) y lo anota en
+    recientes (`recordRecentItem`, como hace `playLive` al reproducir). Sin
+    `playLiveQueue`, el camino de siempre (`xtreamStore.openPlayer`).
+
+- [ ] **Step 1: Tests:**
+  - `buildLiveQueue keeps at most 200 channels centred on the chosen one`;
+  - `buildLiveQueue clamps the window at both ends of the list`;
+  - `buildLiveQueue keeps the whole list when it is short`;
+  - `openLiveQueue passes every channel and resolves with the closing index`;
+  - `playLiveQueue opens the chosen channel directly with another player`.
+
+  Comprueba que fallan.
+- [ ] **Step 2: Implementar.** Tests y lint en verde.
+- [ ] **Step 3: Verificar en el Stick.** Elegir un canal con el mando, zapping
+  ×3 con arriba, Atrás. Expected: la lista marca el último canal visto y
+  está en recientes; la app no se recarga.
+- [ ] **Step 4: Commit** `feat(android): play live channels with Media3 and zap through the visible list`.
+
+### Task 4c.7: Validación en el Stick con el reproductor definitivo (repite la Task 4.5)
+
+**Files:**
+- Create: `tools/android/media3-ui-probe.mjs`
+- Modify: `docs/android-measurements.md` (sección nueva «Integración de Media3 (fase 4c)»)
+
+**Interfaces:**
+- Produces: `node tools/android/media3-ui-probe.mjs <ronda> [serial]`. Por
+  DevTools, en la app ya abierta: elige con un clic los canales de la línea
+  base (los de la 4b) en la lista de directo, hace zapping con
+  `adb shell input keyevent 19` y Atrás con `keyevent 4`. Escucha los eventos
+  del plugin en la página y mide, con `performance.now()` de la página,
+  clic → llegada de `firstFrame` y tecla → `firstFrame`, y Atrás → `closed`.
+  Escribe solo nombres, índices y tiempos en
+  `dist/performance/android-stick/media3-ui-<timestamp>.json`.
+
+- [ ] **Step 1: Exportar una copia** desde Ajustes (sin leerla), como en la Task 4.4.
+- [ ] **Step 2: Medir 3 rondas** con el sondeo: mediana de elegir canal y de
+  zapping desde la interfaz, y de Atrás → `closed` (objetivo < 0,5 s; en la
+  4b era 1,3–2,7 s).
+- [ ] **Step 3: Lo pendiente de la Task 4.5, con el mando:**
+  - 1 episodio: imagen y sonido;
+  - retomar ese episodio y una película en la posición guardada (±5 s tras
+    cerrar con Atrás; ±30 s tras un cierre forzado del paso 5);
+  - **30 minutos seguidos** en un canal FHD: sin cortes ni errores; PSS de
+    la app cada minuto (`dumpsys meminfo`), sin tendencia a crecer;
+  - «Abrir en VLC» desde la ficha de una película y desde el error del
+    reproductor (Task 4c.3).
+- [ ] **Step 4: Ajustes.** Con `pcm` elegido en Ajustes, La 1 FHD da el
+  evento `audio` con `OMX.dolby.eac3.decoder` y `pcm16`; con `auto`, `eac3`
+  en passthrough.
+- [ ] **Step 5: Cierre por memoria simulado.** Con un VOD reproduciéndose,
+  `adb shell run-as com.victor.iptvnator kill -9 <pid>`; después abrir la app
+  desde el lanzador. Expected: no aparece el reproductor con el elemento
+  antiguo ni hay `[perf] native-first-frame` sin que se pida; la app arranca
+  y la posición guardada está a menos de 30 s de donde se mató.
+- [ ] **Step 6: Logs.** Tras provocar un error de reproducción, contar las
+  líneas de logcat del proceso de la app con etiquetas de Media3
+  (`ExoPlayerImpl*`, `MediaCodecRenderer`, `DefaultHttpDataSource`…):
+  esperado 0. Contar, no imprimir.
+- [ ] **Step 7: Anotar** en `docs/android-measurements.md` junto a la 4b y la
+  línea base HTML5 y aplicar el criterio: elegir canal y zapping ≤ 5 s
+  (mediana), episodio y película con imagen y sonido, posición retomada,
+  30 min sin cortes, sin cierres por memoria. Si algo falla, **para** y
+  cuéntaselo a Víctor.
+- [ ] **Step 8: Commit** `docs: measure the integrated Media3 player on the Stick`.
+
+### Task 4c.8: Cierre de la fase
+
+- [ ] **Step 1: Revisión final independiente** de toda la rama
+  (`android/fase-4b-media3..HEAD`) con `requesting-code-review` en **un único
+  subagente con modelo Sonnet** (petición de Víctor: es el único subagente de
+  la fase). Aplicar `receiving-code-review` a lo que devuelva.
+- [ ] **Step 2:** `finishing-a-development-branch`. Push a origin solo con el
+  OK de Víctor, sin PR y sin `--force`.
+- [ ] **Step 3: PARA.** Víctor confirma en la Fire TV antes de empezar la fase 5.
+
+Fuera de esta fase: elección de pista de audio (los canales FHD traen tres),
+«A continuación» entre episodios dentro de Media3, controles de IPTVnator
+sobre el vídeo y «ahora / después» durante la reproducción.
 
 ---
 
