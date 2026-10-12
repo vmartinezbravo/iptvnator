@@ -876,3 +876,88 @@ mtrack`) crecía ~50 MB en cada vuelta (114 → 178 → 227 → 277 MB; PSS tota
 
 Ningún tiempo llega al objetivo de 3 s. La decisión de integrar Media3 en la
 app es de Víctor.
+
+## Integración de Media3 (fase 4c, Task 4c.7) — 2026-10-12
+
+APK debug de la rama `android/fase-4c-integracion` en el Fire TV Stick (AFTSSS,
+Fire OS 7 / Android 9). Media3 es el reproductor por defecto del runtime nativo
+y se abre desde la propia interfaz: clic en la fila del canal o en «Continue»
+de la ficha. Medido con `tools/android/media3-ui-probe.mjs` (3 rondas; en cada
+una, DEPORTES: GOL play FULLHD + 2 zappings; GENERALISTAS: La 1 HD + 4
+zappings; Atrás tras cada lista) y a mano por DevTools. Audio en `auto`
+salvo donde se indica. Antes de las pruebas se exportó una copia de los datos
+desde Ajustes (3.315 B, sin leerla); la copia anterior del mismo día se
+duplicó en el Stick. Datos: `dist/performance/android-stick/media3-ui-*.json`.
+
+### Tiempos desde la interfaz (mediana de 3 rondas)
+
+| Momento                      | HTML5 (fase 4) | Prototipo 4b (desde el plugin) | Media3 integrado (desde el clic) | Objetivo / límite |
+| ---------------------------- | -------------: | -----------------------------: | -------------------------------: | ----------------: |
+| Elegir canal (n=6)           |          7,7 s |                          4,6 s |                        **4,1 s** |         3 s / 5 s |
+| Zapping (n=18)               |      5,1–5,9 s |                          3,4 s |                        **2,9 s** |         3 s / 5 s |
+| Atrás → aviso `closed` (n=6) |              — |                      1,3–2,7 s |     **≈ 1,0 s** (cota, ver nota) |           < 0,5 s |
+
+- **Elegir canal** = clic en la fila → la app llama al plugin (0,2–0,3 s) + el
+  tiempo propio del reproductor hasta el primer fotograma. Valores: 7,5 s (el
+  primero tras arrancar la app, en frío), 4,1, 3,9, 3,7, 4,3 y 4,2 s.
+- **Zapping**: entre 2,1 y 4,0 s; ninguno pasa de 5 s. Mediana por debajo del
+  objetivo de 3 s.
+- **Atrás**: el aviso `closed` sale al pulsar Atrás. La cota de ≈ 1,0 s se mide
+  desde justo antes de lanzar `adb shell input keyevent 4`, que por sí solo
+  tarda ~0,9 s (5 medidas, 0,88–1,18 s); el cierre real queda en unas décimas.
+- Los avisos del reproductor llegan tarde a la página mientras el reproductor
+  está delante (la actividad del WebView está en pausa): La 1 HD tardó 3,9 s
+  en el reproductor y el aviso llegó a la página a los 9,8 s. No afecta a lo
+  que ve el usuario; por eso los tiempos se toman del propio reproductor.
+- 6 de 6 Atrás: vuelve a `MainActivity`, mismo proceso, página sin recargar.
+
+### Lo pendiente de la Task 4.5
+
+| Comprobación                                         | Resultado                                                                                                                                            |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Episodio (primera serie, T1 E1; APK de la Task 4c.5) | Imagen a los 4,7 s; E-AC-3 en passthrough, pista `es`                                                                                                |
+| Retomar episodio tras Atrás                          | Guardado 64 s (con serie, temporada y episodio); al volver empieza en ≈ 63 s                                                                         |
+| Retomar película (mkv AC-3) tras Atrás               | Guardado 155 s; la ficha muestra «Continue · 1h 30m left»; al continuar empieza en ≈ 156 s                                                           |
+| Progreso durante la reproducción                     | Aviso `progress` cada 30 s (51, 81, 111, 141 s)                                                                                                      |
+| **30 minutos seguidos** en La 1 FHD                  | Sin errores; app viva y reproductor delante los 30 minutos; PSS de la app 159–190 MB sin tendencia (162 MB al final); renderer del WebView 94–113 MB |
+| Directo: zapping y salida                            | Tras 3 zappings y Atrás, la lista marca el último canal visto (La 2 HD) y los dos canales quedan en recientes                                        |
+| «Abrir en VLC» desde la ficha de la película         | Menú ⋯ → «Open in external player · VLC» abre VLC; Atrás vuelve a la ficha                                                                           |
+| «Abrir en VLC» desde el error del reproductor        | Texto «No se puede reproducir. Pulsa OK para abrirlo en VLC.»; OK abre VLC; al volver llega `closed` (Task 4c.3)                                     |
+
+### Audio y pista por defecto
+
+- **La 1 FHD** (tres pistas E-AC-3): suena la pista **`es`**, que no está
+  marcada como audiodescripción. En `auto`: `eac3` en passthrough, sin
+  decodificador en el Stick. Con **PCM elegido en Ajustes** («Salida de
+  audio»): `OMX.dolby.eac3.decoder` → `pcm16`, pista `es`. El ajuste se
+  devolvió después a «Automática».
+- **La 2 FHD**: `eac3` en passthrough, pista `es` (3 de 3 rondas).
+- Los canales AAC (GOL, La 1/La 2 HD y SD) no traen idioma en la pista;
+  `OMX.google.aac.decoder` en los dos modos.
+
+### Cierre por memoria simulado
+
+- Con la película reproduciéndose 77 s, `run-as … kill -9` del proceso de la
+  app. Android quitó las dos actividades («app died, no saved state»): no
+  recreó el reproductor ni lo lanzó con la lista antigua.
+- Al abrir la app desde el lanzador arranca normal, sin ningún
+  `[perf] native-first-frame` ni creación del reproductor.
+- Posición guardada: 222 s, escrita 13 s antes del cierre (esperada ≈ 235 s):
+  se pierden ~13 s, dentro de los 30 s del intervalo de progreso.
+
+### Logs
+
+- Tras provocar un error de reproducción (dirección local inexistente, sin
+  credenciales): 39 líneas del proceso de la app en logcat, **0** con
+  etiquetas de Media3 y **0** con una URL. Se contaron, no se imprimieron.
+
+### Criterio de la fase 4c
+
+| Condición                                  | Resultado                                                                                       |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Elegir canal ≤ 5 s (objetivo 3 s), mediana | **Cumple el límite**: 4,1 s                                                                     |
+| Zapping ≤ 5 s (objetivo 3 s), mediana      | **Cumple el objetivo**: 2,9 s                                                                   |
+| Episodio y película con imagen y sonido    | **Sí** (E-AC-3 y AC-3)                                                                          |
+| Posición guardada y retomada               | **Sí** (±5 s tras Atrás; ~13 s perdidos tras cierre forzado)                                    |
+| 30 minutos seguidos                        | **Sí**: sin errores ni crecimiento de memoria (cortes breves sin aviso de error no se contaron) |
+| Sin cierres por memoria                    | **Sí**                                                                                          |
