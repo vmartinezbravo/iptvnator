@@ -8,7 +8,12 @@ import {
     FullscreenOverlayContainer,
     OverlayContainer,
 } from '@angular/cdk/overlay';
-import { ApplicationConfig, importProvidersFrom } from '@angular/core';
+import {
+    ApplicationConfig,
+    importProvidersFrom,
+    inject,
+    provideAppInitializer,
+} from '@angular/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
@@ -30,6 +35,7 @@ import { provideXtreamDataSource } from '@iptvnator/portal/xtream/data-access';
 import {
     provideParentalLockPlaylistCleanup,
     DataService,
+    RuntimeCapabilitiesService,
 } from '@iptvnator/services';
 import { dbConfig } from '@iptvnator/shared/interfaces';
 import { changeDetectionProviders } from '../environments/change-detection.providers';
@@ -41,6 +47,7 @@ import { PlayerService } from './services/player.service';
 import { provideParentalLockPrompt } from './services/parental-lock-prompt.service';
 import { providePortalPlaybackPositions } from './services/portal-playback-positions.service';
 import { shouldEnableServiceWorker } from './services/runtime-config';
+import { startNativeStyleTuning } from './services/native-style-tuning';
 import { LazyStalkerPlaylistConnectionEditor } from './services/lazy-stalker-playlist-connection-editor';
 import { provideWorkspaceShellActions } from './services/workspace-shell-actions.service';
 
@@ -97,6 +104,9 @@ export const appConfig: ApplicationConfig = {
         ...changeDetectionProviders,
         provideRouter(routes, withComponentInputBinding()),
         provideAnimations(),
+        provideAppInitializer(() => {
+            startNativeStyleTuning(inject(RuntimeCapabilitiesService));
+        }),
         // CDK overlays (menus, tooltips, dialogs) live in a container under
         // <body>, which the browser hides behind an element in DOM fullscreen.
         // This container follows the fullscreen element instead, so the
