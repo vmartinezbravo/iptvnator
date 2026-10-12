@@ -600,11 +600,11 @@ Cambios de la revisión final que afectan al Stick:
 
 Detalle y estimaciones en la tabla «Pendiente» de la sección anterior.
 
-| #   | Palanca                                                                          | Cuándo                                                              |
-| --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| B   | Sacar los reproductores del camino de Live                                       | Solo con OK de Víctor (afecta a todos los runtimes)                 |
-| C   | Quitar Video.js, ArtPlayer y Shaka del build `android`                           | **Fase 6** (Tasks 6.2/6.3)                                          |
-| D2  | Conseguir caché de código para el JS de la app                                   | Cuando Víctor lo pida; candidata natural de la fase 6               |
-| E   | Salida ES2022 y/o quitar zone.js                                                 | Solo con OK de Víctor                                               |
-| F   | Repartir la normalización de películas y series para quitar las congelaciones    | **Si las congelaciones molestan en el uso real**                    |
-| 2   | Catálogo por `fetch` del WebView                                                 | Solo con OK expreso de Víctor (choca con la regla de CapacitorHttp) |
+| #   | Palanca                                                                       | Cuándo                                                              |
+| --- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| B   | Sacar los reproductores del camino de Live                                    | Solo con OK de Víctor (afecta a todos los runtimes)                 |
+| C   | Quitar Video.js, ArtPlayer y Shaka del build `android`                        | **Fase 6** (Tasks 6.2/6.3)                                          |
+| D2  | Conseguir caché de código para el JS de la app                                | Cuando Víctor lo pida; candidata natural de la fase 6               |
+| E   | Salida ES2022 y/o quitar zone.js                                              | Solo con OK de Víctor                                               |
+| F   | Repartir la normalización de películas y series para quitar las congelaciones | **Si las congelaciones molestan en el uso real**                    |
+| 2   | Catálogo por `fetch` del WebView                                              | Solo con OK expreso de Víctor (choca con la regla de CapacitorHttp) |
