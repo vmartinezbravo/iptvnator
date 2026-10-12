@@ -3,8 +3,9 @@
 //
 // Each run: force-stop, clear logcat, `am start`, attach to the WebView over
 // DevTools, open Live of the first Xtream source in-app (no reload), click the
-// first category as soon as nothing covers it, and read the timestamps of
-// `Start proc … <package>` and `[perf] live-list-ready` from logcat. Then it
+// first category as soon as nothing covers it, and read `Start proc …
+// <package>` from logcat and the `[perf] live-list-ready` console mark over
+// DevTools (the APK keeps Capacitor's logcat bridge off). Then it
 // waits for the catalogue to settle and records PSS of the app process and of
 // the WebView renderer (`sandboxed_process`). Needs a source already added in
 // the app; it never reads or prints credentials.
@@ -67,8 +68,18 @@ async function connectPage() {
     });
     let id = 0;
     const pending = new Map();
+    // Console marks with the device's epoch-ms timestamp. Runtime.enable also
+    // replays what was logged before we attached.
+    const consoleLines = [];
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
+        if (msg.method === 'Runtime.consoleAPICalled') {
+            const text = msg.params.args
+                .map((arg) => arg.value ?? arg.description ?? '')
+                .join(' ');
+            consoleLines.push({ atMs: msg.params.timestamp, text });
+            return;
+        }
         pending.get(msg.id)?.(msg);
         pending.delete(msg.id);
     };
@@ -86,7 +97,8 @@ async function connectPage() {
                 awaitPromise: true,
             })
         ).result?.result?.value;
-    return { pid, send, evaluate, close: () => ws.close() };
+    await send('Runtime.enable');
+    return { pid, send, evaluate, consoleLines, close: () => ws.close() };
 }
 
 // In-app navigation: Angular's router follows popstate, so no page reload.
@@ -123,43 +135,44 @@ const CLICK_FIRST_CATEGORY = `(() => {
     return true;
 })()`;
 
-const logTime = (line) => {
-    const [, h, m, s, ms] = line.match(/^\S+ (\d+):(\d+):(\d+)\.(\d+)/);
-    return ((+h * 60 + +m) * 60 + +s) * 1000 + +ms;
-};
+// `logcat -v epoch` lines start with seconds since the epoch, the same clock
+// as the DevTools console timestamps.
+const logTime = (line) =>
+    Math.round(Number(line.trim().split(/\s+/)[0]) * 1000);
 
-function readTimes() {
-    const log = adb('logcat', '-d', '-v', 'threadtime');
+function readTimes(consoleLines) {
+    const log = adb('logcat', '-d', '-v', 'epoch');
     const find = (re) => log.split('\n').find((l) => re.test(l));
+    const mark = (re) => consoleLines.find((line) => re.test(line.text));
     const start = find(new RegExp(`Start proc \\d+:${PKG}/`));
-    const click = find(/\[perf\] category-click/);
-    const ready = find(/\[perf\] live-list-ready/);
+    const click = mark(/\[perf\] category-click/);
+    const ready = mark(/\[perf\] live-list-ready/);
     const died = log
         .split('\n')
         .filter(
             (l) => l.includes(PKG) && /has died|lowmemorykiller|Kill/i.test(l)
         );
-    if (!start || !ready) throw new Error('missing logcat markers');
+    if (!start || !ready)
+        throw new Error('missing start or live-list-ready mark');
     const t0 = logTime(start);
     // PortalDebug lines: "<action> request <id>" / "<action> response <id> <ms>ms".
-    const requests = log
-        .split('\n')
-        .map((l) => ({
-            l,
-            m: l.match(
+    const requests = consoleLines
+        .map((line) => ({
+            line,
+            m: line.text.match(
                 /\[PortalDebug:xtream\] (\w+) (request|response|error) \S+(?: ([\d.]+)ms)?/
             ),
         }))
         .filter(({ m }) => m)
-        .map(({ l, m }) => ({
-            atMs: logTime(l) - t0,
+        .map(({ line, m }) => ({
+            atMs: Math.round(line.atMs - t0),
             action: m[1],
             event: m[2],
             ...(m[3] ? { durationMs: Math.round(Number(m[3])) } : {}),
         }));
     return {
-        startToCategoryClickMs: click ? logTime(click) - t0 : null,
-        startToLiveListReadyMs: logTime(ready) - t0,
+        startToCategoryClickMs: click ? Math.round(click.atMs - t0) : null,
+        startToLiveListReadyMs: Math.round(ready.atMs - t0),
         processDeathLines: died,
         requests,
     };
@@ -205,7 +218,7 @@ async function run(index) {
     );
     const jank = await browseWhileImporting(page);
     await sleep(SETTLE_MS);
-    const times = readTimes();
+    const times = readTimes(page.consoleLines);
     const renderer = adb('shell', 'ps', '-A')
         .split('\n')
         .find((l) => /sandboxed_process/.test(l));
