@@ -85,6 +85,9 @@
             "@iptvnator/portal/xtream/data-access": [
                 "libs/portal/xtream/data-access/src/index.ts"
             ],
+            "@iptvnator/workspace/shell/feature/workspace-shell": [
+                "libs/workspace/shell/feature/src/lib/workspace-shell/workspace-shell.component.ts"
+            ],
             "@iptvnator/workspace/shell/feature": [
                 "libs/workspace/shell/feature/src/index.ts"
             ],

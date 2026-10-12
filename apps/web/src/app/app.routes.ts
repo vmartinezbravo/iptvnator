@@ -80,8 +80,10 @@ export const routes: Routes = [
         resolve: {
             settingsReady: settingsReadyResolver,
         },
+        // Shell component only: the library index also re-exports the
+        // global favorites list, which pulls every player into startup.
         loadComponent: () =>
-            import('@iptvnator/workspace/shell/feature').then(
+            import('@iptvnator/workspace/shell/feature/workspace-shell').then(
                 (c) => c.WorkspaceShellComponent
             ),
         children: [

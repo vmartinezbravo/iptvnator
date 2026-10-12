@@ -12,7 +12,9 @@ import {
 import { RouterOutlet } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ExternalPlaybackDockComponent } from '@iptvnator/ui/components';
-import { EmbeddedMpvOverlayVisibilityService } from '@iptvnator/ui/playback';
+// Secondary entry point: the @iptvnator/ui/playback barrel would pull every
+// player (Video.js, ArtPlayer, hls.js, mpegts.js, Shaka; ~3 MB) into startup.
+import { EmbeddedMpvOverlayVisibilityService } from '@iptvnator/ui/playback/embedded-mpv-player';
 import {
     PlaylistDropOverlayComponent,
     PlaylistDropZoneDirective,
