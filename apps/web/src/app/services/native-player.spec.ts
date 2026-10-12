@@ -1,0 +1,99 @@
+import {
+    createNativePlayer,
+    NativePlayerEvent,
+    NativePlayerPluginApi,
+    NativePlayerRequest,
+} from './native-player';
+
+type Listener = (data: Record<string, unknown>) => void;
+
+function fakePlugin() {
+    const listeners = new Map<string, Listener>();
+    const removed: string[] = [];
+    const plugin: NativePlayerPluginApi = {
+        play: jest.fn().mockResolvedValue({ started: true }),
+        addListener: jest.fn(async (name: string, listener: Listener) => {
+            listeners.set(name, listener);
+            return {
+                remove: async () => {
+                    removed.push(name);
+                },
+            };
+        }),
+    };
+    const fire = (name: string, data: Record<string, unknown>) =>
+        listeners.get(name)?.(data);
+    return { plugin, fire, removed };
+}
+
+describe('NativePlayer', () => {
+    it('maps plugin events to NativePlayerEvent', async () => {
+        const { plugin, fire, removed } = fakePlugin();
+        const player = createNativePlayer(plugin);
+        const seen: NativePlayerEvent[] = [];
+
+        const subscription = player.events().subscribe((e) => seen.push(e));
+        await Promise.resolve();
+        fire('firstFrame', { index: 1, ms: 3500 });
+        fire('audio', {
+            index: 1,
+            decoder: 'OMX.dolby.eac3.decoder',
+            encoding: 'pcm16',
+            passthrough: false,
+        });
+        fire('audio', { index: 2, encoding: 'eac3', passthrough: true });
+        fire('error', { index: 2, code: 'ERROR_CODE_IO', message: '<url>' });
+        fire('closed', { index: 2, positionMs: 17719 });
+        subscription.unsubscribe();
+        await Promise.resolve();
+
+        expect(seen).toEqual([
+            { type: 'first-frame', index: 1, ms: 3500 },
+            {
+                type: 'audio',
+                index: 1,
+                decoder: 'OMX.dolby.eac3.decoder',
+                encoding: 'pcm16',
+                passthrough: false,
+            },
+            {
+                type: 'audio',
+                index: 2,
+                decoder: null,
+                encoding: 'eac3',
+                passthrough: true,
+            },
+            {
+                type: 'error',
+                index: 2,
+                code: 'ERROR_CODE_IO',
+                message: '<url>',
+            },
+            { type: 'closed', index: 2, positionMs: 17719 },
+        ]);
+        expect(removed.sort()).toEqual([
+            'audio',
+            'closed',
+            'error',
+            'firstFrame',
+        ]);
+    });
+
+    it('play passes the request to the plugin unchanged', async () => {
+        const { plugin } = fakePlugin();
+        const request: NativePlayerRequest = {
+            items: [
+                { url: 'http://example.test/live/1.m3u8', title: 'La 1 HD' },
+                { url: 'http://example.test/live/2.m3u8' },
+            ],
+            index: 1,
+            isLive: true,
+            audioMode: 'pcm',
+        };
+
+        await expect(createNativePlayer(plugin).play(request)).resolves.toBe(
+            undefined
+        );
+        expect(plugin.play).toHaveBeenCalledWith(request);
+    });
+});

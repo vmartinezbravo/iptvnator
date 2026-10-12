@@ -792,3 +792,83 @@ en `docs/android-exoplayer-proposal.md`.
   caros.
 - **Cambio de categoría:** domina el pintado y la composición de capas, lo
   que apunta a U2 (desenfoques `backdrop-filter`, sombras, capas).
+
+## Prototipo Media3 (fase 4b, Task 4b.4) — 2026-10-12
+
+APK debug de la rama `android/fase-4b-media3` en el Fire TV Stick (AFTSSS,
+Fire OS 7 / Android 9). Media3 1.11.1 en una actividad a pantalla completa,
+lanzada desde DevTools con `tools/android/native-player-probe.mjs` (3 rondas;
+cada ronda, en `auto` y en `pcm`: DEPORTES, GENERALISTAS y la mkv con AC-3).
+Tiempos del propio reproductor: desde la llamada al plugin (elegir canal) o
+desde la tecla D-pad arriba (zapping) hasta el primer fotograma de Media3.
+Sonido: evento `audio` del reproductor más el `AudioTrack` de la app en estado
+`started` (`dumpsys audio`). Datos: `dist/performance/android-stick/media3-*.json`.
+
+### Tiempos (mediana de 3 rondas)
+
+| Momento                       |   HTML5 (fase 4) | Media3 `auto` | Media3 `pcm` | Objetivo / límite |
+| ----------------------------- | ---------------: | ------------: | -----------: | ----------------: |
+| Elegir canal en directo (n=6) |            7,7 s |     **4,6 s** |    **4,6 s** |         3 s / 5 s |
+| Zapping (n=18)                |        5,1–5,9 s |     **3,4 s** |    **3,6 s** |         3 s / 5 s |
+| Abrir la mkv con AC-3 (n=3)   | 5,2 s sin sonido |         5,2 s |        4,5 s |                 — |
+
+- Zapping: entre 2,0 y 4,6 s (`auto`) y entre 2,6 y 4,6 s (`pcm`); ningún
+  zapping pasa de 5 s. Elegir canal: entre 3,6 y 5,7 s.
+- Cumplen el **límite** de 5 s en mediana; no llegan al **objetivo** de 3 s.
+
+### Imagen y sonido de lo que el HTML5 no reproduce
+
+| Contenido         | `auto` (passthrough)                                      | `pcm` (decodificado en el Stick)                 |
+| ----------------- | --------------------------------------------------------- | ------------------------------------------------ |
+| La 1 FHD (E-AC-3) | imagen 2,2–3,5 s; `eac3` al receptor, `AudioTrack` activo | imagen 2,9–3,5 s; `OMX.dolby.eac3.decoder` → PCM |
+| La 2 FHD (E-AC-3) | imagen 3,1–3,6 s; `eac3` al receptor, `AudioTrack` activo | imagen 3,8–4,2 s; `OMX.dolby.eac3.decoder` → PCM |
+| mkv 720p (AC-3)   | imagen 4,9–5,8 s; `ac3` al receptor, `AudioTrack` activo  | imagen 4,5–5,8 s; `OMX.dolby.ac3.decoder` → PCM  |
+
+- En las 3 rondas y en los dos modos: imagen, evento `audio` y `AudioTrack`
+  en `started`, sin errores. Con tres pistas E-AC-3 suena una sola (un
+  único evento `audio` por canal); cuál se elige no se ha comprobado.
+- El Stick confirma que **envía** el audio; que el televisor o el receptor lo
+  **suene** en passthrough solo se puede confirmar de oído (pendiente de Víctor).
+- Los canales AAC (GOL, La 1/La 2 HD y SD) se decodifican con
+  `OMX.google.aac.decoder` en los dos modos. En 1 de 54 muestras (GOL play FULLHD, `pcm`,
+  ronda 2) el `AudioTrack` no estaba en `started` en el instante de la
+  lectura, aunque el evento `audio` sí llegó.
+
+### Atrás
+
+- En las 54 muestras, Atrás vuelve a `MainActivity`, en el mismo proceso y sin
+  recargar la página (el estado de `window` sigue ahí).
+- El evento `closed` llega **1,3–2,7 s** después de pulsar Atrás (Fire OS llama
+  tarde a `onStop`); en 5 de 18 listas aún no había llegado a los 3 s de la
+  medición. Para la integración conviene emitirlo al pulsar Atrás.
+
+### Memoria: cierre por memoria encontrado y corregido
+
+- **Primera versión: la app moría** tras 4–5 aperturas del reproductor. El
+  kernel (lowmemorykiller) mataba con SIGKILL una decena de procesos y la app,
+  en primer plano, al volver al WebView.
+- Causa (medida con `dumpsys meminfo`): la memoria gráfica de la app (`GL
+mtrack`) crecía ~50 MB en cada vuelta (114 → 178 → 227 → 277 MB; PSS total
+  180 → 412 MB). Al tapar `MainActivity` con una actividad opaca, Android la
+  para, el WebView pierde su superficie y su contexto GPU, y lo recrea al
+  volver; lo anterior no se libera porque la app nunca pasa a segundo plano.
+  Con Inicio → volver no crece (ahí sí se recorta).
+- Arreglo: la ventana del reproductor es **translúcida**, así `MainActivity`
+  solo se pausa. Con el arreglo, 6 vueltas seguidas: `GL mtrack` entre 113 y
+  191 MB, sin crecer, y ninguna muerte en las 3 rondas (54 muestras).
+- 10 minutos seguidos en La 1 FHD (`auto`): sin errores ni cortes, la app
+  sigue viva y en primer plano. PSS de la app entre 214 y 310 MB por minuto,
+  sin tendencia a crecer (217 MB al final); renderer del WebView 44–65 MB.
+
+### Criterio de la fase 4b
+
+| Condición                                                          | Resultado                                                     |
+| ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Elegir canal ≤ 5 s (objetivo 3 s), mediana                         | **Cumple el límite**: 4,6 s en los dos modos (HTML5: 7,7 s)   |
+| Zapping ≤ 5 s (objetivo 3 s), mediana                              | **Cumple el límite**: 3,4 s / 3,6 s (HTML5: 5,1–5,9 s)        |
+| La 1 FHD y La 2 FHD (E-AC-3) con imagen y sonido, en los dos modos | **Sí** en el Stick (passthrough por oír, pendiente de Víctor) |
+| mkv con AC-3 con imagen y sonido, en los dos modos                 | **Sí** en el Stick (passthrough por oír, pendiente de Víctor) |
+| Sin cierres por memoria                                            | **Sí tras el arreglo** de la ventana translúcida (antes, no)  |
+
+Ningún tiempo llega al objetivo de 3 s. La decisión de integrar Media3 en la
+app es de Víctor.
