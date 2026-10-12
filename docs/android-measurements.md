@@ -347,3 +347,111 @@ volver a medir. Con eso, la fase debería quedar entre el objetivo y el límite
 acercar al objetivo de 10 s sin tocar decisiones de arquitectura. La **2**
 solo si aceptas relajar la regla de CapacitorHttp para el catálogo. El resto,
 no por ahora.
+
+## Fire TV Stick tras las mitigaciones 1 y 4 — 2026-10-12
+
+Decisión de Víctor sobre la tabla anterior: aplicar la **1** (overlay por
+sección, solo en el runtime nativo) y la **4** (investigar el arranque,
+empezando por Video.js y ArtPlayer). No aplicar la 2, la 3, la 5, la 6 ni la
+7; la 2, solo con su OK expreso más adelante.
+
+> **Resultado: 17,2 s de mediana** hasta poder elegir canal (antes, 55,7 s).
+> Dentro del límite de 20 s y por encima del objetivo de 10 s. Sin cierres por
+> memoria. Según la decisión de Víctor, la fase **se para aquí** y se le
+> presentan las palancas que quedan (abajo).
+
+### Qué se cambió
+
+| Mitigación | Cambio                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Commit      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1          | En el runtime nativo, el overlay de Live, Películas y Series sigue el estado de carga de su propio tipo. Búsqueda y Añadidos recientemente siguen esperando a toda la importación. Escritorio y PWA, sin cambios                                                                                                                                                                                                                                                                                                                              | `7914695aa` |
+| 4          | La ruta `workspace` cargaba la shell desde el índice de su librería. Ese índice, y la propia shell, llegaban al barrel `@iptvnator/ui/playback`, así que **en cada arranque se descargaba, compilaba y ejecutaba un chunk de ~3 MB** con Video.js, ArtPlayer, hls.js, mpegts.js y Shaka, también en el dashboard. Ahora la shell entra por `@iptvnator/workspace/shell/feature/workspace-shell` y el servicio de overlays por `@iptvnator/ui/playback/embedded-mpv-player`. Afecta al empaquetado en todos los runtimes, no al comportamiento | `584e22bee` |
+
+Investigación de la 4 (perfil de CPU de una recarga directa a Live en el
+Stick, con el proceso ya caliente: 5,4 s hasta la primera petición). No hay un
+culpable único:
+
+- ~3,1 s de «(program)»: parseo y compilación de JS, estilos y layout.
+- ~1,1 s en el chunk de Angular core.
+- ~0,5 s en los _helpers_ de esbuild que emulan `async/await` y el spread de
+  objetos.
+- ~0,2 s de zone.js.
+- ~0,2 s en el chunk de reproductores.
+
+Con la 4, el dashboard ya no carga los reproductores (en la consola dejan de
+salir los avisos de Video.js y ArtPlayer). **Live sigue cargándolos**, porque
+`live-stream-layout` importa `WebPlayerViewComponent` desde el barrel. Por eso
+el tiempo hasta la primera petición en Live apenas cambia: 10,4 s de mediana
+ahora, frente a 10,6 s antes.
+
+### Resultados (3 arranques en frío)
+
+| Ronda       | Poder elegir canal |    PSS app | PSS renderer WebView |   Heap JS |
+| ----------- | -----------------: | ---------: | -------------------: | --------: |
+| 1           |         **17,2 s** |     155 MB |                96 MB |     45 MB |
+| 2           |         **16,7 s** |     155 MB |                95 MB |     45 MB |
+| 3           |         **17,2 s** |     159 MB |               100 MB |     45 MB |
+| **Mediana** |         **17,2 s** | **155 MB** |            **96 MB** | **45 MB** |
+
+- Ningún cierre. La memoria no cambia respecto a la medición anterior
+  (≈ 251 MB app + renderer). Se mide al terminar la importación, con la lista
+  recorrida.
+- Resultados en bruto: `dist/performance/android-stick/2026-10-12T06-39-44-780Z.json`
+  (más una ronda de prueba previa de 20,6 s, en `…06-34-04-440Z.json`).
+
+Cronología de la ronda 1 (segundos desde `Start proc`):
+
+| Desde | Hasta | Qué ocurre                                          |
+| ----: | ----: | --------------------------------------------------- |
+|     0 |  10,4 | Arranque de la app hasta la primera petición        |
+|  10,4 |  12,6 | `get_account_info`                                  |
+|  12,6 |  14,8 | Categorías (en paralelo)                            |
+|  14,8 |  16,2 | `get_live_streams`                                  |
+|  16,2 |  17,2 | Se quita el overlay de Live y se pinta la lista     |
+|  16,2 |  36,4 | `get_vod_streams` en segundo plano (Live ya se usa) |
+|  37,7 |  48,6 | `get_series` en segundo plano                       |
+
+### Tirones al recorrer canales mientras se importan películas y series
+
+Desde que Live está listo, el script pulsa ↓ en la lista de canales cada
+300 ms. Lo hace por DevTools (`Input.dispatchKeyEvent`, el mismo camino que una
+tecla) y sigue hasta 5 s después de que responda `get_series`, unos 31 s en
+total.
+
+| Ronda | Teclas | Tecla atendida (mediana / p90 / máx.) | Teclas > 250 ms | Long tasks (> 50 ms) | Long tasks > 500 ms | Mayor long task | Mayor hueco sin fotograma |
+| ----- | -----: | ------------------------------------: | --------------: | -------------------: | ------------------: | --------------: | ------------------------: |
+| 1     |     80 |                     38 / 234 / 525 ms |               5 |                   18 |                   2 |       **2,9 s** |                 **2,9 s** |
+| 2     |     77 |                     36 / 218 / 414 ms |               5 |                   19 |                   2 |       **2,8 s** |                 **2,7 s** |
+| 3     |     79 |                     35 / 215 / 402 ms |               5 |                   18 |                   2 |       **2,6 s** |                 **2,6 s** |
+
+- Casi todo el rato la lista responde bien: mediana de 35–38 ms por tecla.
+- **En cada ronda hay dos congelaciones largas**: una de 2,6–2,9 s y otra de
+  más de 0,5 s. Coinciden en número con las dos respuestas grandes (películas y
+  series), que se convierten y normalizan de golpe en el hilo principal.
+  Durante la congelación la pantalla no se actualiza y las pulsaciones se
+  acumulan.
+- La latencia de tecla subestima las congelaciones: el script deja de pulsar
+  mientras espera su propia consulta a la página. La medida fiable es el hueco
+  sin fotograma.
+
+### Palancas que quedan para bajar de 10 s (pendientes de decisión)
+
+Faltan ~7 s. Estimaciones a partir de la cronología y del perfil, no medidas.
+
+| #   | Palanca                                                                                                                                                                                            | Efecto estimado                                                    | Coste          | Notas                                                                                                                                                                                                                         |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | **Pedir los canales en paralelo con `get_account_info` y las categorías**, en lugar de en serie (hoy son 3 esperas encadenadas de ~2 s)                                                            | **−2 a −3,5 s**                                                    | S–M            | Toca `with-content.feature.ts`, el store compartido; se puede limitar al runtime nativo. Es distinta de la opción 3 (películas y series en paralelo). Hay que comprobar que nada depende de `account_info` antes del catálogo |
+| B   | **Sacar los reproductores del camino de Live**: `@defer` para `app-web-player-view` e imports de `ui/playback` por puntos de entrada secundarios en `live-stream-layout`                           | −0,5 a −1,5 s                                                      | M              | Cambia cuándo se carga el reproductor en todos los runtimes (la primera reproducción espera a ese chunk). Librería compartida                                                                                                 |
+| C   | Recorte de la fase 6 adelantado: fuera Video.js, ArtPlayer y Shaka del build `android` (`fileReplacements`)                                                                                        | −0,5 a −1 s y ~1,8 MB menos de JS                                  | M              | Ya está en el plan (Tasks 6.2/6.3). Solo afecta a Android                                                                                                                                                                     |
+| D   | Comprobar si el WebView guarda la caché de código compilado de los scripts que sirve Capacitor (`http://localhost`, peticiones interceptadas). Si no la guarda, cada arranque recompila todo el JS | Desconocido; puede ser una parte grande de los ~3 s de compilación | S (investigar) | Solo medición; el arreglo dependería de lo que salga                                                                                                                                                                          |
+| E   | Salida ES2022 y/o quitar zone.js (sin _helpers_ de `async/await` ni spread)                                                                                                                        | −0,5 a −1 s                                                        | M–L            | Afecta a toda la app. Upstream tiene trabajo previo (`perf/zoneless-flag`, `perf-electron-es2022-target`)                                                                                                                     |
+| F   | Repartir la normalización de películas y series en trozos que cedan el hilo principal                                                                                                              | Quita las congelaciones de ~2,8 s; no cambia los 17 s              | M              | Solo para los tirones. Store compartido; se puede limitar al runtime nativo                                                                                                                                                   |
+
+El arranque nativo hasta el primer fotograma de la actividad (`am start`,
+3,7–3,9 s) es casi un suelo: es Android creando el proceso y el WebView.
+
+**Recomendación de Claude:** A, porque es la que más ahorra por menos coste,
+y D, porque cuesta poco investigarla y puede ser grande. Con la A, ~14–15 s;
+la D puede bajar algo más.
+Para acercarse a 10 s harían falta además B o C. F, si las congelaciones de
+~3 s molestan en el uso real.
