@@ -27,7 +27,8 @@ export default [
     ...nx.configs['flat/typescript'],
     ...nx.configs['flat/javascript'],
     {
-        ignores: ['**/dist', '**/.astro'],
+        // apps/android-tv/android: Gradle output and the copied web build.
+        ignores: ['**/dist', '**/.astro', 'apps/android-tv/android/**'],
     },
     {
         files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
