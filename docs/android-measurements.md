@@ -827,8 +827,12 @@ Sonido: evento `audio` del reproductor más el `AudioTrack` de la app en estado
 - En las 3 rondas y en los dos modos: imagen, evento `audio` y `AudioTrack`
   en `started`, sin errores. Con tres pistas E-AC-3 suena una sola (un
   único evento `audio` por canal); cuál se elige no se ha comprobado.
-- El Stick confirma que **envía** el audio; que el televisor o el receptor lo
-  **suene** en passthrough solo se puede confirmar de oído (pendiente de Víctor).
+- El Stick confirma que **envía** el audio. **Prueba de oído de Víctor
+  (2026-10-12), La 1 FHD en su tele:** suena en `auto` (`eac3`,
+  passthrough, sin decodificador en el Stick) y en `pcm`
+  (`OMX.dolby.eac3.decoder` → `pcm16`). La 2 FHD (también E-AC-3) y la mkv
+  (AC-3) no se han comprobado de oído; el Stick las envía por la misma ruta.
+  Lanzado con `tools/android/stick-eval.mjs` y `tools/android/np-open.js`.
 - Los canales AAC (GOL, La 1/La 2 HD y SD) se decodifican con
   `OMX.google.aac.decoder` en los dos modos. En 1 de 54 muestras (GOL play FULLHD, `pcm`,
   ronda 2) el `AudioTrack` no estaba en `started` en el instante de la
@@ -862,13 +866,13 @@ mtrack`) crecía ~50 MB en cada vuelta (114 → 178 → 227 → 277 MB; PSS tota
 
 ### Criterio de la fase 4b
 
-| Condición                                                          | Resultado                                                     |
-| ------------------------------------------------------------------ | ------------------------------------------------------------- |
-| Elegir canal ≤ 5 s (objetivo 3 s), mediana                         | **Cumple el límite**: 4,6 s en los dos modos (HTML5: 7,7 s)   |
-| Zapping ≤ 5 s (objetivo 3 s), mediana                              | **Cumple el límite**: 3,4 s / 3,6 s (HTML5: 5,1–5,9 s)        |
-| La 1 FHD y La 2 FHD (E-AC-3) con imagen y sonido, en los dos modos | **Sí** en el Stick (passthrough por oír, pendiente de Víctor) |
-| mkv con AC-3 con imagen y sonido, en los dos modos                 | **Sí** en el Stick (passthrough por oír, pendiente de Víctor) |
-| Sin cierres por memoria                                            | **Sí tras el arreglo** de la ventana translúcida (antes, no)  |
+| Condición                                                          | Resultado                                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Elegir canal ≤ 5 s (objetivo 3 s), mediana                         | **Cumple el límite**: 4,6 s en los dos modos (HTML5: 7,7 s)  |
+| Zapping ≤ 5 s (objetivo 3 s), mediana                              | **Cumple el límite**: 3,4 s / 3,6 s (HTML5: 5,1–5,9 s)       |
+| La 1 FHD y La 2 FHD (E-AC-3) con imagen y sonido, en los dos modos | **Sí**; La 1 FHD suena de oído en `auto` y en `pcm` (Víctor) |
+| mkv con AC-3 con imagen y sonido, en los dos modos                 | **Sí** en el Stick (sin prueba de oído)                      |
+| Sin cierres por memoria                                            | **Sí tras el arreglo** de la ventana translúcida (antes, no) |
 
 Ningún tiempo llega al objetivo de 3 s. La decisión de integrar Media3 en la
 app es de Víctor.
