@@ -1,5 +1,6 @@
 package com.victor.iptvnator;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,7 +17,12 @@ import androidx.media3.common.Player;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.audio.AudioCapabilities;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
@@ -50,6 +56,8 @@ public class NativePlayerActivity extends AppCompatActivity {
     private long clockStart;
     private boolean firstFrameSeen;
     private boolean closed;
+    /** Audio decoder of the current channel; null while passing through. */
+    private String audioDecoder;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,7 +72,26 @@ public class NativePlayerActivity extends AppCompatActivity {
         cursor = new ChannelCursor(urls.size(), intent.getIntExtra(NativePlayerPlugin.EXTRA_INDEX, 0));
         isLive = intent.getBooleanExtra(NativePlayerPlugin.EXTRA_IS_LIVE, false);
 
-        player = new ExoPlayer.Builder(this).setLoadControl(buildLoadControl()).build();
+        boolean pcmOnly = "pcm".equals(intent.getStringExtra(NativePlayerPlugin.EXTRA_AUDIO_MODE));
+        player = new ExoPlayer.Builder(this, new AudioRouteRenderersFactory(this, pcmOnly))
+            .setLoadControl(buildLoadControl())
+            .build();
+        player.addAnalyticsListener(new AnalyticsListener() {
+            @Override
+            public void onAudioDecoderInitialized(EventTime time, String decoderName, long initializedAtMs, long initializationMs) {
+                audioDecoder = decoderName;
+            }
+
+            @Override
+            public void onAudioTrackInitialized(EventTime time, AudioSink.AudioTrackConfig config) {
+                NativePlayerEvents.audio(
+                    cursor.index(),
+                    audioDecoder,
+                    AudioRouteReport.encodingName(config.encoding),
+                    AudioRouteReport.isPassthrough(config.encoding)
+                );
+            }
+        });
         player.addListener(new Player.Listener() {
             @Override
             public void onRenderedFirstFrame() {
@@ -90,6 +117,33 @@ public class NativePlayerActivity extends AppCompatActivity {
 
         clockStart = intent.getLongExtra(NativePlayerPlugin.EXTRA_REQUESTED_AT, SystemClock.elapsedRealtime());
         play(cursor.index(), intent.getLongExtra(NativePlayerPlugin.EXTRA_START_POSITION_MS, 0));
+    }
+
+    /**
+     * "auto" lets Media3 pass Dolby audio through when the HDMI receiver
+     * takes it; "pcm" announces a PCM-only output, so the Stick's
+     * OMX.dolby decoders turn AC-3 and E-AC-3 into PCM.
+     */
+    private static final class AudioRouteRenderersFactory extends DefaultRenderersFactory {
+
+        private final boolean pcmOnly;
+
+        AudioRouteRenderersFactory(Context context, boolean pcmOnly) {
+            super(context);
+            this.pcmOnly = pcmOnly;
+        }
+
+        @Override
+        protected AudioSink buildAudioSink(Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+            if (!pcmOnly) {
+                return super.buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams);
+            }
+            // Built without a Context on purpose: with one, Media3 1.11 reads
+            // the HDMI receiver's capabilities and ignores the PCM-only ones.
+            return new DefaultAudioSink.Builder()
+                .setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+                .build();
+        }
     }
 
     private static DefaultLoadControl buildLoadControl() {
@@ -137,6 +191,7 @@ public class NativePlayerActivity extends AppCompatActivity {
     private void play(int index, long startPositionMs) {
         int current = ++request;
         firstFrameSeen = false;
+        audioDecoder = null;
         player.stop();
         String url = urls.get(index);
         resolver.execute(() -> {

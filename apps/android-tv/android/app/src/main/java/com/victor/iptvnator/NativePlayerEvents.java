@@ -2,6 +2,7 @@ package com.victor.iptvnator;
 
 import com.getcapacitor.JSObject;
 import java.util.regex.Pattern;
+import org.json.JSONObject;
 
 /**
  * Carries the player activity's events to the NativePlayer plugin, which
@@ -30,7 +31,8 @@ final class NativePlayerEvents {
     static void audio(int index, String decoder, String encoding, boolean passthrough) {
         JSObject data = new JSObject();
         data.put("index", index);
-        data.put("decoder", decoder);
+        // A plain null would drop the key; passthrough has no decoder.
+        data.put("decoder", decoder != null ? decoder : JSONObject.NULL);
         data.put("encoding", encoding);
         data.put("passthrough", passthrough);
         send("audio", data);
