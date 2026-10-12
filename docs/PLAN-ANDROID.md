@@ -623,12 +623,17 @@ Rama: `android/fase-6-optimizacion`.
 
 Rama: `android/fase-7-release`.
 
-**Pendientes de la fase 3 que se revisan aquí** [Víctor, 2026-10-12]. Entran
+**Pendientes de las fases 3 y 4 que se revisan aquí** [Víctor, 2026-10-12]. Entran
 en la checklist de la Task 7.2, paso 1:
 - **`android:allowBackup="true"`** en `apps/android-tv/android/app/src/main/AndroidManifest.xml`.
   Las credenciales Xtream están en IndexedDB y, en Fire OS 7 (API 28),
   `adb backup` puede extraerlas. Decidir entre `allowBackup="false"` y unas
   reglas de backup que excluyan `app_webview`.
+- **Copia de seguridad de ajustes en `Documents/IPTVnator`** (Task 4.4).
+  El archivo lleva las credenciales de las fuentes y está en una carpeta
+  pública que cualquier app con permiso de almacenamiento puede leer. Hoy solo
+  se avisa al exportar. Revisar si la copia debe ir a una carpeta privada de la
+  app o cifrarse con una contraseña que se pida al exportar y al restaurar.
 - **Aviso de WebView antigua** (`WebViewVersionGuard` / `MainActivity`, Task 3.3).
   En Fire TV, el WebView se actualiza con el sistema (Fire OS), no desde una
   tienda de apps, así que el texto «Actualízala desde la tienda de apps»
@@ -664,8 +669,9 @@ en la checklist de la Task 7.2, paso 1:
   - el APK está firmado;
   - no hay secretos en el repo;
   - las mediciones de la fase 6 son vigentes;
-  - `allowBackup` y el texto del aviso de WebView antigua, revisados (ver
-    «Pendientes de la fase 3» al inicio de esta fase).
+  - `allowBackup`, la ubicación o el cifrado de la copia de seguridad y el
+    texto del aviso de WebView antigua, revisados (ver «Pendientes de las
+    fases 3 y 4» al inicio de esta fase).
 - [ ] **Step 2: Instalar en el Stick.** `adb uninstall com.victor.iptvnator` (la firma cambia respecto a debug, así que avisa a Víctor de que se pierden los datos de prueba), después `adb install app-release.apk`, y recorre los tres recorridos.
 - [ ] **Step 3: Escribir la sección del README y hacer commit** `docs: add Android / Fire TV build and install guide`.
 - [ ] **Step 4: Cierre de fase**, con revisión, `finishing-a-development-branch` y el OK de Víctor.

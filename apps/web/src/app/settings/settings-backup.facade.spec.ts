@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
     selectAllPlaylistsMeta,
@@ -9,7 +12,8 @@ import { PlaylistBackupService } from '@iptvnator/services/playlist-backup';
 import { provideMockStore } from '@ngrx/store/testing';
 import { TranslateModule } from '@ngx-translate/core';
 import { MockProvider } from 'ng-mocks';
-import { NATIVE_BACKUP_FILE_WRITER } from './native-backup-file';
+import { of } from 'rxjs';
+import { NATIVE_BACKUP_FILES } from './native-backup-file';
 import { SettingsBackupFacade } from './settings-backup.facade';
 import { SettingsSnackbarService } from './settings-snackbar.service';
 import {
@@ -21,7 +25,12 @@ import {
 describe('SettingsBackupFacade', () => {
     let facade: SettingsBackupFacade;
     let playlistBackupService: PlaylistBackupService;
-    let nativeBackupWriter: jest.Mock;
+    let nativeBackupFiles: {
+        save: jest.Mock;
+        list: jest.Mock;
+        read: jest.Mock;
+    };
+    let dialog: { open: jest.Mock };
     const originalElectron = window.electron;
     const capacitorWindow = window as unknown as {
         Capacitor?: { isNativePlatform?: () => boolean };
@@ -36,10 +45,8 @@ describe('SettingsBackupFacade', () => {
                 SettingsBackupFacade,
                 SettingsSnackbarService,
                 { provide: MatSnackBar, useClass: MatSnackBarStub },
-                {
-                    provide: NATIVE_BACKUP_FILE_WRITER,
-                    useValue: nativeBackupWriter,
-                },
+                { provide: NATIVE_BACKUP_FILES, useValue: nativeBackupFiles },
+                { provide: MatDialog, useValue: dialog },
                 MockProvider(PlaylistBackupService, {
                     exportBackup: jest
                         .fn()
@@ -65,11 +72,16 @@ describe('SettingsBackupFacade', () => {
 
     beforeEach(() => {
         window.electron = createElectronStub();
-        nativeBackupWriter = jest
-            .fn()
-            .mockResolvedValue(
-                '/storage/emulated/0/Documents/IPTVnator/backup.json'
-            );
+        nativeBackupFiles = {
+            save: jest
+                .fn()
+                .mockResolvedValue(
+                    '/storage/emulated/0/Documents/IPTVnator/backup.json'
+                ),
+            list: jest.fn().mockResolvedValue([]),
+            read: jest.fn(),
+        };
+        dialog = { open: jest.fn() };
     });
 
     const originalCreateObjectUrl = window.URL.createObjectURL;
@@ -105,13 +117,110 @@ describe('SettingsBackupFacade', () => {
 
         await facade.exportData(noWait);
 
-        expect(nativeBackupWriter).toHaveBeenCalledWith(
+        expect(nativeBackupFiles.save).toHaveBeenCalledWith(
             BACKUP_EXPORT_RESULT.defaultFileName,
             BACKUP_EXPORT_RESULT.json
         );
         expect(createObjectURL).not.toHaveBeenCalled();
-        expect(snackbar).toHaveBeenCalledWith('SETTINGS.BACKUP_EXPORTED_TO');
+        // Long enough to read the credentials warning on a TV.
+        expect(snackbar).toHaveBeenCalledWith(
+            'SETTINGS.BACKUP_EXPORTED_TO',
+            expect.objectContaining({ duration: 10000 })
+        );
         expect(facade.isExportingData()).toBe(false);
+    });
+
+    it('warns that a device backup holds credentials in a shared folder', () => {
+        const en = JSON.parse(
+            readFileSync(
+                resolve(process.cwd(), 'apps/web/src/assets/i18n/en.json'),
+                'utf8'
+            )
+        );
+        const message: string = en.SETTINGS.BACKUP_EXPORTED_TO;
+
+        expect(message).toContain('{{path}}');
+        expect(message).toMatch(/credentials/i);
+        expect(message).toMatch(/other apps/i);
+    });
+
+    it('restores a backup picked from the device folder on native shell', async () => {
+        capacitorWindow.Capacitor = { isNativePlatform: () => true };
+        configure();
+        const files = [
+            {
+                name: 'iptvnator-playlist-backup-2026-10-12.json',
+                modifiedAt: 2,
+            },
+        ];
+        nativeBackupFiles.list.mockResolvedValue(files);
+        nativeBackupFiles.read.mockResolvedValue('{"backup":true}');
+        dialog.open.mockReturnValue({ afterClosed: () => of(files[0].name) });
+        (playlistBackupService.importBackup as jest.Mock).mockResolvedValue({
+            imported: 1,
+            merged: 0,
+            skipped: 0,
+            failed: 0,
+            errors: [],
+        });
+        const createElement = jest.spyOn(document, 'createElement');
+        const onImported = jest.fn();
+
+        await facade.importData(onImported);
+
+        expect(dialog.open).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ data: { files } })
+        );
+        expect(nativeBackupFiles.read).toHaveBeenCalledWith(files[0].name);
+        expect(playlistBackupService.importBackup).toHaveBeenCalledWith(
+            '{"backup":true}'
+        );
+        expect(onImported).toHaveBeenCalledTimes(1);
+        expect(createElement).not.toHaveBeenCalledWith('input');
+    });
+
+    it('explains where to put backups when the device folder has none', async () => {
+        capacitorWindow.Capacitor = { isNativePlatform: () => true };
+        configure();
+        const snackbar = jest.spyOn(
+            TestBed.inject(SettingsSnackbarService),
+            'open'
+        );
+
+        await facade.importData(jest.fn());
+
+        expect(dialog.open).not.toHaveBeenCalled();
+        expect(snackbar).toHaveBeenCalledWith(
+            'SETTINGS.BACKUP_NONE_ON_DEVICE',
+            expect.objectContaining({ duration: 10000 })
+        );
+    });
+
+    it('does nothing when the device backup list is dismissed', async () => {
+        capacitorWindow.Capacitor = { isNativePlatform: () => true };
+        configure();
+        nativeBackupFiles.list.mockResolvedValue([
+            { name: 'a.json', modifiedAt: 1 },
+        ]);
+        dialog.open.mockReturnValue({ afterClosed: () => of(undefined) });
+
+        await facade.importData(jest.fn());
+
+        expect(nativeBackupFiles.read).not.toHaveBeenCalled();
+        expect(playlistBackupService.importBackup).not.toHaveBeenCalled();
+    });
+
+    it('keeps the file picker outside a native shell', async () => {
+        configure();
+        const input = document.createElement('input');
+        jest.spyOn(document, 'createElement').mockReturnValue(input);
+        const click = jest.spyOn(input, 'click').mockImplementation();
+
+        await facade.importData(jest.fn());
+
+        expect(click).toHaveBeenCalledTimes(1);
+        expect(nativeBackupFiles.list).not.toHaveBeenCalled();
     });
 
     it('keeps the browser download outside a native shell', async () => {
@@ -132,7 +241,7 @@ describe('SettingsBackupFacade', () => {
 
         await facade.exportData(noWait);
 
-        expect(nativeBackupWriter).not.toHaveBeenCalled();
+        expect(nativeBackupFiles.save).not.toHaveBeenCalled();
         expect(createObjectURL).toHaveBeenCalledTimes(1);
     });
 

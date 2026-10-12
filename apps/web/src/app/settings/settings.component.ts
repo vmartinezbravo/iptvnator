@@ -490,7 +490,7 @@ export class SettingsComponent
     }
 
     importData(): void {
-        this.backup.importData(() => this.form.hydrateFromStore());
+        void this.backup.importData(() => this.form.hydrateFromStore());
     }
 
     removeAll(): void {
