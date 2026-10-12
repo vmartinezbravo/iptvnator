@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
+import android.webkit.WebSettings;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -22,6 +23,8 @@ import java.util.List;
 @CapacitorPlugin(name = "ExternalPlayer")
 public class ExternalPlayerPlugin extends Plugin {
 
+    private static final int MAX_REDIRECTS = 5;
+
     @PluginMethod
     public void open(PluginCall call) {
         String url = call.getString("url");
@@ -29,8 +32,16 @@ public class ExternalPlayerPlugin extends Plugin {
             call.reject("url is required");
             return;
         }
+        // Plugin calls run off the main thread, so the redirect requests may
+        // block here. The browser agent gets this provider's proper redirect.
+        String playableUrl = StreamRedirects.resolve(
+            url,
+            WebSettings.getDefaultUserAgent(getContext()),
+            StreamRedirects.HTTP,
+            MAX_REDIRECTS
+        );
         Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.parse(url), "video/*");
+        intent.setDataAndType(Uri.parse(playableUrl), "video/*");
         String title = call.getString("title");
         if (title != null && !title.isEmpty()) {
             intent.putExtra("title", title);
