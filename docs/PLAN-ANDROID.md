@@ -724,6 +724,9 @@ como ya hacen. El zapping del directo recibe la lista de canales visibles.
 - Media3 es el reproductor del runtime nativo para directo, películas y episodios.
 - Audio: `auto` (passthrough) por defecto; `pcm` como opción en Ajustes.
 - «Abrir en VLC» queda como alternativa.
+- Pista de audio por defecto: la del idioma del dispositivo (español), evitando
+  las marcadas como audiodescripción (Task 4c.1b). HTML5 queda como
+  alternativa; `ExternalPlayerSession.player` admite `'native'`.
 
 ### Global Constraints (además de las del plan y de la 4b)
 
@@ -800,6 +803,45 @@ como ya hacen. El zapping del directo recibe la lista de canales visibles.
   `progress`; se cancela al cerrar. Tests nativos en verde y
   `assemble-debug` compila.
 - [ ] **Step 3: Commit** `feat(android): close the native player at Back and report progress`.
+
+### Task 4c.1b: Pista de audio por defecto: idioma del dispositivo, sin audiodescripción
+
+Añadida por Víctor al aprobar el plan (2026-10-12). El selector de pistas
+sigue fuera de la fase.
+
+**Files:**
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/AudioTrackPreference.java`
+- Modify: `NativePlayerActivity.java`, `NativePlayerEvents.java`
+- Modify: `apps/web/src/app/services/native-player.ts` (campo `language` del evento `audio`)
+- Test: `apps/android-tv/android/app/src/test/java/com/victor/iptvnator/AudioTrackPreferenceTest.java`, `native-player.spec.ts`
+
+**Interfaces:**
+- Produces:
+  - `AudioTrackPreference.choose(String[] languages, int[] roleFlags, String deviceLanguage): int`.
+    Recibe los idiomas ya normalizados por Media3 (`Util.normalizeLanguageCode`,
+    p. ej. `"es"`, `"es-ES"`, o `null`) y los `roleFlags` de cada pista de
+    audio. Devuelve, por este orden: la primera pista del idioma del
+    dispositivo (igual, o con prefijo `deviceLanguage + "-"`) **sin**
+    `C.ROLE_FLAG_DESCRIBES_VIDEO`; si no hay, la primera sin ese flag; si
+    todas lo tienen, `0`. `IllegalArgumentException` si las listas están
+    vacías o no miden lo mismo.
+  - En la actividad: `TrackSelectionParameters` con
+    `setPreferredAudioLanguage(<idioma del dispositivo>)` antes de cada
+    elemento; en `onTracksChanged`, la primera vez por elemento, si la pista
+    elegida por `choose` no es la seleccionada, se fija con un
+    `TrackSelectionOverride`. Idioma del dispositivo:
+    `Util.normalizeLanguageCode(Locale.getDefault().getLanguage())`.
+  - El evento `audio` lleva `language: string | null` (idioma de la pista que
+    suena; no lleva URL).
+
+- [ ] **Step 1: Tests** `AudioTrackPreferenceTest`:
+  `prefersTheDeviceLanguage`, `matchesARegionalVariantOfTheDeviceLanguage`,
+  `skipsAnAudioDescriptionInTheDeviceLanguage`,
+  `fallsBackToTheFirstTrackWithoutDescription`, `fallsBackToTheFirstTrackWhenAllAreDescriptions`,
+  `rejectsEmptyOrMismatchedLists`; y en `native-player.spec.ts`,
+  `maps the audio track language`. Comprueba que fallan.
+- [ ] **Step 2: Implementar.** Tests nativos y `corepack pnpm nx test web` en verde.
+- [ ] **Step 3: Commit** `feat(android): prefer the device language and skip audio description`.
 
 ### Task 4c.2: Recreación tras un cierre por memoria y logs de Media3
 
@@ -1054,7 +1096,9 @@ como ya hacen. El zapping del directo recibe la lista de canales visibles.
     la app cada minuto (`dumpsys meminfo`), sin tendencia a crecer;
   - «Abrir en VLC» desde la ficha de una película y desde el error del
     reproductor (Task 4c.3).
-- [ ] **Step 4: Ajustes.** Con `pcm` elegido en Ajustes, La 1 FHD da el
+- [ ] **Step 4: Ajustes y pista de audio.** En La 1 FHD, el evento `audio` trae
+  `language` igual a `es` (o, si el proveedor no marca idiomas, `null` en
+  todas las pistas: anotarlo) y la pista no es de audiodescripción. Con `pcm` elegido en Ajustes, La 1 FHD da el
   evento `audio` con `OMX.dolby.eac3.decoder` y `pcm16`; con `auto`, `eac3`
   en passthrough.
 - [ ] **Step 5: Cierre por memoria simulado.** Con un VOD reproduciéndose,
@@ -1083,9 +1127,13 @@ como ya hacen. El zapping del directo recibe la lista de canales visibles.
   OK de Víctor, sin PR y sin `--force`.
 - [ ] **Step 3: PARA.** Víctor confirma en la Fire TV antes de empezar la fase 5.
 
-Fuera de esta fase: elección de pista de audio (los canales FHD traen tres),
-«A continuación» entre episodios dentro de Media3, controles de IPTVnator
-sobre el vídeo y «ahora / después» durante la reproducción.
+### Pendientes (fuera de la fase 4c, anotados por Víctor el 2026-10-12)
+
+- Selector de pista de audio y de subtítulos en el reproductor nativo (los
+  canales FHD traen tres pistas E-AC-3).
+- «A continuación» entre episodios dentro de Media3.
+- «Ahora / después» durante la reproducción.
+- Controles de IPTVnator sobre el vídeo (hoy son los de Media3).
 
 ---
 
