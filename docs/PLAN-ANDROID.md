@@ -1210,6 +1210,12 @@ Estimación: **1–1,5 días**.
   una parte no alcanza la mejora esperada, se anota y se sigue con la Task 5.2;
   lo pendiente pasa a la fase 6 (palanca E, sin zone.js).
 
+**Resultado** [Víctor, 2026-10-12, OK]: la parte 1 cumple (tecla 176/208 →
+45/66 ms, 0 tareas largas, 58,5 fps); la parte 2 no (hueco al cambiar de
+categoría 384 ms, 25 fps; de sección 767 ms). Se mantiene por ahora «filas
+ligeras primero» (EPG y botones un frame después, `RowDetailsScheduler`) y lo
+que falta pasa a la fase 6, palanca E. Detalle en `docs/android-measurements.md`.
+
 ### Task 5.2: Navegación espacial con el D-pad
 
 **Files:**
@@ -1293,6 +1299,17 @@ Estimación: **1–1,5 días**.
 # Fase 6 — Recorte y optimización
 
 Rama: `android/fase-6-optimizacion`.
+
+**Pendiente de la fase 5 (Task 5.1a, parte 2)** [Víctor, 2026-10-12]. Los
+cambios de categoría y de sección siguen sin llegar al objetivo: hueco más
+largo ≤ 150 ms y ≥ 40 fps al cambiar de categoría (hoy 384 ms y 25 fps), y
+≤ 400 ms al cambiar de sección (hoy 767 ms). Antes de la 5.1a, cada cambio de
+categoría era un frame de ~240 ms: ~150 ms de detección de cambios creando las
+filas y ~90 ms de estilos y layout forzados; hoy es de ~180 ms. Se ataca con la **palanca E** (Angular sin zone.js,
+detección de cambios por señales) y con menos trabajo por fila. Al cerrarlo se
+decide si se mantiene «filas ligeras primero» (`RowDetailsScheduler`, que suma
+~50 ms de trabajo total). Se mide con `node tools/android/ui-fluidity.mjs 3 --restart`
+y se compara con la tabla de la Task 5.1a en `docs/android-measurements.md`.
 
 ### Task 6.1: Medición antes del recorte
 
