@@ -755,3 +755,37 @@ Episodio de serie, retomar una posición guardada, 30 minutos seguidos.
 **Criterio de la Task 4.5: no aprobada.** Hay canales que no se reproducen
 (E-AC-3), películas mkv sin sonido (AC-3) y tiempos por encima de 5 s. Propuesta
 en `docs/android-exoplayer-proposal.md`.
+
+## Seguimiento de la fase 4 — 2026-10-12
+
+### «Abrir en VLC» tras resolver la redirección (commit `0079e7e93`)
+
+- VLC ya reproduce los canales FHD (La 1 FHD): imagen correcta y audio
+  (VLC decodifica el E-AC-3 a PCM; su `AudioPlayer` en estado `started`).
+- Referencia de tiempos (no es la línea base; incluye arrancar otra app):
+  desde la llamada de IPTVnator hasta que la sesión de VLC pasa a PLAYING,
+  **10,1–12,0 s al elegir canal** con VLC cerrado y **~11 s en zapping** (en
+  la mitad de los cambios VLC no publicó un estado nuevo y no se pudo medir).
+- La línea base para Media3 es el reproductor HTML5: 7,7 s al elegir canal y
+  5,1–5,9 s en zapping (sección «Reproducción en el Stick»).
+
+### Restauración en el Stick (con copia exportada antes)
+
+- Copia exportada: 2.921 bytes, con 3 posiciones y 10 recientes (antes del
+  arreglo la copia de la PWA salía vacía: 630 bytes).
+- Restaurar esa copia: «0 importadas, 1 combinada, 0 fallidas». Favoritos,
+  recientes y posiciones, igual que antes (0 / 10 / 3). No se pierde nada.
+
+### Dónde va el tiempo al navegar (traza de DevTools, hilo principal)
+
+| Acción                               |   Total | JavaScript | Estilos (`UpdateLayoutTree`) | Pintado y capas (`Paint` + `Layerize` + `Commit`) |
+| ------------------------------------ | ------: | ---------: | ---------------------------: | ------------------------------------------------: |
+| Una pulsación del D-pad (media de 6) | ~230 ms |    ~100 ms |                       ~73 ms |                                            ~51 ms |
+| Un cambio de categoría (media de 6)  | ~260 ms |     ~55 ms |                       ~37 ms |                                       **~128 ms** |
+
+- **D-pad:** casi la mitad es JavaScript que corre en cada `keydown`
+  (manejadores de teclado y detección de cambios de toda la app) y un tercio
+  es recalcular estilos de un DOM grande. Confirma U1 y apunta a selectores
+  caros.
+- **Cambio de categoría:** domina el pintado y la composición de capas, lo
+  que apunta a U2 (desenfoques `backdrop-filter`, sombras, capas).

@@ -477,6 +477,225 @@ Rama: `android/fase-4-reproductor`.
 
 ---
 
+# Fase 4b — Prototipo medido de Media3 (ExoPlayer)
+
+Rama: `android/fase-4b-media3`, desde `android/fase-4-reproductor`.
+Aprobada por Víctor el 2026-10-12 como **prototipo medido**: no se integra en
+la app hasta ver los números. Argumento y evidencia:
+`docs/android-exoplayer-proposal.md` (§2 AC-3/E-AC-3, §3 tiempos, §4 diseño,
+§6 redirección) y `docs/android-measurements.md` («Reproducción en el Stick»).
+
+**Goal:** saber, con medidas en el Stick, si un reproductor nativo Media3 a
+pantalla completa reproduce con imagen y sonido lo que el HTML5 no puede, y
+con qué tiempos de primera imagen y zapping.
+
+**Architecture:** plugin Capacitor `NativePlayer` que lanza
+`NativePlayerActivity` (Media3 `PlayerView` a pantalla completa) con una
+lista de elementos y un índice. Los eventos (`firstFrame`, `audio`, `error`,
+`closed`) vuelven al WebView. En el prototipo nadie de la UI lo llama: se
+lanza desde un script de medición por DevTools, como la línea base de VLC.
+
+### Criterio de la fase (Víctor, 2026-10-12)
+
+Media3 se integra en la app **solo si**, en el Stick y con el método de la
+fase 4 (clic → primer fotograma):
+
+- elegir canal → primera imagen y zapping → primera imagen cumplen los
+  umbrales del plan: objetivo **3 s**, límite **5 s** (mediana de 3);
+- los canales FHD con E-AC-3 (La 1 FHD, La 2 FHD) y una película mkv con
+  AC-3 se ven **y se oyen**, tanto con **passthrough** (el receptor HDMI
+  decodifica) como **decodificado en el Stick** (`OMX.dolby.*`, salida PCM).
+
+Línea base de comparación: el reproductor HTML5 actual (7,7 s al elegir
+canal, 5,1–5,9 s en zapping). VLC (10–12 s) es solo referencia.
+
+### Global Constraints (además de las del plan)
+
+- Dependencias nuevas: solo `androidx.media3:media3-exoplayer`,
+  `media3-exoplayer-hls` y `media3-ui`, en **la misma versión exacta**: la
+  última estable publicada hace más de dos semanas. Su tamaño en el APK
+  debug y la versión van en el mensaje del commit.
+- Sin cambios en el reproductor HTML5, en los recorridos de la app ni en
+  escritorio/PWA. El código TypeScript nuevo solo existe en el runtime nativo.
+- Peticiones de Media3 con el User-Agent del WebView
+  (`WebSettings.getDefaultUserAgent`) y la URL resuelta antes con
+  `StreamRedirects.resolve(url, ua, StreamRedirects.HTTP, 5)` (fase 4).
+- Nada de credenciales ni URLs en logs, eventos o resultados de medición:
+  los eventos llevan índice y nombre, nunca la URL.
+- Pruebas en el Stick sin tocar datos de usuario (CLAUDE.md).
+
+### Review Focus
+
+1. **Receptor HDMI sin AC-3/E-AC-3:** el passthrough no está disponible.
+   Esperado: el modo `auto` cae a decodificación (`OMX.dolby.*`) y suena.
+   Test: Task 4b.3, `audio report marks decoded output when the sink has no passthrough`.
+2. **Tres pistas E-AC-3** en el mismo canal FHD. Esperado: se elige una sola
+   (la primera por defecto) y suena. Comprobado en la Task 4b.4 (evento `audio`).
+3. **Redirección mal formada `//https://`** del proveedor. Esperado: Media3
+   reproduce igual. Test: los de `StreamRedirectsTest` (fase 4) más la
+   medición de la Task 4b.4 con canales que redirigen.
+4. **Atrás en la actividad:** vuelve al WebView sin recargar la app ni perder
+   el catálogo en memoria. Comprobado en la Task 4b.4.
+5. **Memoria:** WebView + Media3 1080p. Esperado: sin cierres por memoria en
+   10 minutos de reproducción. Comprobado en la Task 4b.4 (`dumpsys meminfo`).
+
+### Task 4b.1: Plugin `NativePlayer` y lista de canales
+
+**Files:**
+- Modify: `apps/android-tv/android/app/build.gradle` (dependencias Media3)
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/ChannelCursor.java`
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/NativePlayerPlugin.java`
+- Modify: `MainActivity.java` (`registerPlugin(NativePlayerPlugin.class)`)
+- Test: `apps/android-tv/android/app/src/test/java/com/victor/iptvnator/ChannelCursorTest.java`
+
+**Interfaces:**
+- Produces:
+  - `final class ChannelCursor` con `ChannelCursor(int size, int index)`,
+    `int index()`, `int next()`, `int previous()`: avanza o retrocede con
+    vuelta al principio o al final; `IllegalArgumentException` si `size < 1`
+    o el índice está fuera de rango.
+  - Plugin `NativePlayer`, método `play(options)` con
+    `{ items: { url: string; title?: string }[]; index: number; isLive: boolean; startPositionMs?: number; audioMode?: 'auto' | 'pcm' }`.
+    Guarda `SystemClock.elapsedRealtime()` al recibir la llamada, lanza
+    `NativePlayerActivity` con todo ello en extras y resuelve `{ started: true }`.
+    Rechaza con `"items is required"` si la lista está vacía.
+  - Eventos del plugin (`notifyListeners`), que emite la actividad de la
+    Task 4b.2: `firstFrame { index, ms }`, `audio { index, decoder: string | null, encoding: string, passthrough: boolean }`,
+    `error { index, code, message }`, `closed { index, positionMs }`.
+
+- [ ] **Step 1: Tests** `ChannelCursorTest`: `nextWrapsToTheFirstChannel`, `previousWrapsToTheLastChannel`, `rejectsAnEmptyListOrAnIndexOutOfRange`. Comprueba que fallan (`pnpm nx run android-tv:test-native`).
+- [ ] **Step 2: Implementar** `ChannelCursor` y el plugin. Añadir Media3 a `build.gradle`. `pnpm nx run android-tv:test-native` en verde y `pnpm nx run android-tv:assemble-debug` compila.
+- [ ] **Step 3: Commit** `feat(android): NativePlayer plugin skeleton with Media3 dependencies`, con versión de Media3 y tamaño del APK debug antes/después.
+
+### Task 4b.2: `NativePlayerActivity` con Media3
+
+**Files:**
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/NativePlayerActivity.java`
+- Create: `apps/android-tv/android/app/src/main/res/layout/activity_native_player.xml` (`PlayerView` a pantalla completa)
+- Modify: `AndroidManifest.xml` (actividad, tema sin barra, `configChanges` como `MainActivity`)
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/NativePlayerEvents.java` (puente estático actividad → plugin)
+
+**Interfaces:**
+- Consumes: `ChannelCursor`, extras de la Task 4b.1, `StreamRedirects.resolve`.
+- Produces: la actividad reproduce `items[index]`:
+  - fuente: `HlsMediaSource` si la URL resuelta acaba en `.m3u8`, si no `ProgressiveMediaSource`;
+  - `DefaultHttpDataSource.Factory().setUserAgent(<UA del WebView>).setAllowCrossProtocolRedirects(true)`;
+  - `DefaultLoadControl` con `bufferForPlaybackMs = 1000` y `bufferForPlaybackAfterRebufferMs = 2000`;
+  - la URL se resuelve fuera del hilo principal antes de `setMediaItem`.
+  
+  Atajos:
+  - `KEYCODE_DPAD_UP`, `KEYCODE_CHANNEL_UP` → `cursor.next()`;
+  - `KEYCODE_DPAD_DOWN`, `KEYCODE_CHANNEL_DOWN` → `cursor.previous()`;
+  - Atrás → `finish()` y evento `closed`.
+  
+  Por cada canal, el reloj arranca al recibir la llamada (primer canal) o al pulsar la tecla (zapping). En `onRenderedFirstFrame` se emite `firstFrame { index, ms }` y se escribe `[perf] native-first-frame <ms> <index>` con `android.util.Log.i`; esta es la única línea de log nueva y no lleva URL.
+
+- [ ] **Step 1: Implementar.** Lógica pura ya cubierta por `ChannelCursorTest` y `StreamRedirectsTest`. La actividad se verifica en el dispositivo, con la misma decisión que el plugin `ExternalPlayer` (Ruling de la Task 4.3).
+- [ ] **Step 2: Verificar en el Stick.** Lanzar desde DevTools con un canal HD que hoy funciona en HTML5. Expected: imagen y sonido, `firstFrame` recibido en el WebView, Atrás vuelve a la app sin recargarla.
+- [ ] **Step 3: Commit** `feat(android): fullscreen Media3 player activity for the prototype`.
+
+### Task 4b.3: Modo de audio (passthrough o decodificado) y su informe
+
+**Files:**
+- Create: `apps/android-tv/android/app/src/main/java/com/victor/iptvnator/AudioRouteReport.java`
+- Modify: `NativePlayerActivity.java`
+- Test: `apps/android-tv/android/app/src/test/java/com/victor/iptvnator/AudioRouteReportTest.java`
+
+**Interfaces:**
+- Produces:
+  - `static String encodingName(int encoding)`: `C.ENCODING_AC3` → `"ac3"`,
+    `C.ENCODING_E_AC3` → `"eac3"`, `C.ENCODING_E_AC3_JOC` → `"eac3-joc"`,
+    `C.ENCODING_PCM_16BIT` → `"pcm16"`, `C.ENCODING_PCM_FLOAT` → `"pcm-float"`,
+    cualquier otro → `"other:<n>"`.
+  - `static boolean isPassthrough(int encoding)`: verdadero para AC-3, E-AC-3 y
+    E-AC-3 JOC; falso para PCM.
+  - En la actividad:
+    - `audioMode: 'pcm'` construye el `DefaultAudioSink` con `AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES` (solo PCM) y obliga a decodificar con `OMX.dolby.*`;
+    - `'auto'` usa las capacidades del receptor HDMI;
+    - un `AnalyticsListener` emite `audio { index, decoder, encoding, passthrough }` con el nombre del decodificador (`onAudioDecoderInitialized`, `null` si no se inicializa ninguno) y la codificación de salida (`onAudioTrackInitialized`).
+
+- [ ] **Step 1: Tests:**
+  - `namesTheDolbyAndPcmEncodings`;
+  - `treatsCompressedOutputAsPassthrough`;
+  - `audio report marks decoded output when the sink has no passthrough` (`isPassthrough(C.ENCODING_PCM_16BIT)` es falso).
+
+  Comprueba que fallan.
+- [ ] **Step 2: Implementar.** `pnpm nx run android-tv:test-native` en verde.
+- [ ] **Step 3: Commit** `feat(android): choose and report the prototype's audio route`.
+
+### Task 4b.4: Interfaz `NativePlayer` y medición en el Stick
+
+**Files:**
+- Create: `apps/web/src/app/services/native-player.ts`
+- Test: `apps/web/src/app/services/native-player.spec.ts`
+- Create: `tools/android/native-player-probe.mjs`
+- Modify: `docs/android-measurements.md` (sección «Prototipo Media3»)
+
+**Interfaces:**
+- Consumes: plugin y eventos de la Task 4b.1.
+- Produces, en `native-player.ts` (sin nombres de plataforma, para iOS en el futuro):
+  ```ts
+  export interface NativePlayerItem { url: string; title?: string }
+  export interface NativePlayerRequest {
+      items: readonly NativePlayerItem[];
+      index: number;
+      isLive: boolean;
+      startPositionMs?: number;
+      audioMode?: 'auto' | 'pcm';
+  }
+  export type NativePlayerEvent =
+      | { type: 'first-frame'; index: number; ms: number }
+      | { type: 'audio'; index: number; decoder: string | null; encoding: string; passthrough: boolean }
+      | { type: 'error'; index: number; code: string; message: string }
+      | { type: 'closed'; index: number; positionMs: number };
+  export interface NativePlayer {
+      play(request: NativePlayerRequest): Promise<void>;
+      events(): Observable<NativePlayerEvent>;
+  }
+  export const NATIVE_PLAYER: InjectionToken<NativePlayer>;
+  ```
+  - La implementación usa `registerPlugin('NativePlayer')` y convierte los
+    eventos del plugin (`firstFrame`, `audio`, `error`, `closed`) en
+    `NativePlayerEvent`.
+  - Refina el boceto de la propuesta (§4.1): una lista `items` con un
+    `index` en lugar de un elemento más `channels`.
+  - `native-player-probe.mjs`:
+    - uso: `node tools/android/native-player-probe.mjs <ronda> [serial]`;
+    - lanza el plugin por DevTools con los canales de la línea base HTML5
+      (DEPORTES: GOL play FULLHD, GOL PLAY SD, GOL PLAY HD; GENERALISTAS:
+      La 1 HD, La 1 SD, La 2 HD, La 1 FHD, La 2 FHD) y una mkv con AC-3
+      (City Hunter y el perfume de Cupido 720p, id 46966; su AC-3 se comprobó en la Task 4.5);
+    - zapping con `adb shell input keyevent 19` (D-pad arriba);
+    - recoge los eventos y escribe solo nombres, índices y tiempos en
+      `dist/performance/android-stick/media3-<timestamp>.json`.
+
+- [ ] **Step 1: Tests** `native-player.spec.ts`:
+  - `maps plugin events to NativePlayerEvent`;
+  - `play passes the request to the plugin unchanged`.
+
+  Comprueba que fallan.
+- [ ] **Step 2: Implementar.** Los tests pasan con `pnpm nx test web`.
+- [ ] **Step 3: Medir en el Stick**, 3 rondas, en `audioMode: 'auto'` y en
+  `audioMode: 'pcm'`:
+  - mediana de elegir canal y de zapping;
+  - en La 1 FHD, La 2 FHD y la mkv: imagen (`firstFrame`) y sonido (evento
+    `audio` con decodificador o passthrough, más el `AudioPlayer` de la app
+    en estado `started` en `dumpsys audio`);
+  - Atrás vuelve a la app sin recargarla;
+  - PSS de la app tras 10 min en un canal FHD.
+
+  Si el receptor no admite passthrough, anotarlo: Víctor lo prueba con otra
+  tele o desactivando «Dolby Digital Plus» en los ajustes de audio de Fire OS.
+- [ ] **Step 4: Anotar** los resultados en `docs/android-measurements.md`
+  junto a la línea base HTML5 y aplicar el criterio de la fase.
+- [ ] **Step 5: Commit** `feat(android): NativePlayer interface and Media3 measurements`.
+- [ ] **Step 6: PARA.** Presenta los números a Víctor. La integración en los
+  tres recorridos se planifica solo con su OK y en tareas nuevas: selección
+  de reproductor, guardado de posiciones y recientes con los eventos
+  `closed`, e interfaz de pistas de audio.
+
+---
+
 # Fase 5 — Mando y manifest
 
 Rama: `android/fase-5-mando`. Para los estilos de foco se usa `frontend-design`,
