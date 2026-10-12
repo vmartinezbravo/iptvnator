@@ -470,7 +470,7 @@ no ahorran más de 1 s.
 > **Sobre la aceptación:** la A ahorró 2,0 s, más de 1 s, así que la segunda
 > condición de Víctor («las palancas no ahorran más de 1 s») **no se cumple**.
 > La aceptación se apoya solo en leer 15,0–15,2 s como «por debajo de ~15 s».
-> Víctor tiene que confirmar esa lectura.
+> Víctor confirmó esa lectura el 2026-10-12 (ver la sección siguiente).
 
 ### Palanca A: canales adelantados mientras se comprueba la cuenta
 
@@ -572,6 +572,10 @@ Cambios de la revisión final que afectan al Stick:
 > **Línea base de la Fire TV: 15,0 s de mediana** desde que arranca la app
 > hasta poder elegir un canal en directo. Dentro del límite de 20 s y ~5 s por
 > encima del objetivo de 10 s. Sin cierres por memoria.
+>
+> **Aceptada por Víctor el 2026-10-12** como línea base de la Fire TV. Es la
+> referencia para comparar en las fases siguientes (la 6 repite esta
+> medición con `node tools/android/stick-startup.mjs 3`).
 
 | Ronda       | `am start` | Poder elegir canal |    PSS app | PSS renderer | Mayor hueco sin fotograma | Teclas > 250 ms |
 | ----------- | ---------: | -----------------: | ---------: | -----------: | ------------------------: | --------------: |
@@ -592,5 +596,15 @@ Cambios de la revisión final que afectan al Stick:
   Stick.
 - Resultados en bruto: `dist/performance/android-stick/2026-10-12T07-46-38-775Z.json`.
 
-Las palancas pendientes (B, C, D2, E, F y la opción 2) siguen como en la tabla
-«Pendiente» de la sección anterior.
+### Pendiente tras la línea base
+
+Detalle y estimaciones en la tabla «Pendiente» de la sección anterior.
+
+| #   | Palanca                                                                          | Cuándo                                                              |
+| --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| B   | Sacar los reproductores del camino de Live                                       | Solo con OK de Víctor (afecta a todos los runtimes)                 |
+| C   | Quitar Video.js, ArtPlayer y Shaka del build `android`                           | **Fase 6** (Tasks 6.2/6.3)                                          |
+| D2  | Conseguir caché de código para el JS de la app                                   | Cuando Víctor lo pida; candidata natural de la fase 6               |
+| E   | Salida ES2022 y/o quitar zone.js                                                 | Solo con OK de Víctor                                               |
+| F   | Repartir la normalización de películas y series para quitar las congelaciones    | **Si las congelaciones molestan en el uso real**                    |
+| 2   | Catálogo por `fetch` del WebView                                                 | Solo con OK expreso de Víctor (choca con la regla de CapacitorHttp) |
