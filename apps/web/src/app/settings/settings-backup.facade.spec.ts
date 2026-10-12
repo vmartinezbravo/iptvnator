@@ -9,6 +9,7 @@ import { PlaylistBackupService } from '@iptvnator/services/playlist-backup';
 import { provideMockStore } from '@ngrx/store/testing';
 import { TranslateModule } from '@ngx-translate/core';
 import { MockProvider } from 'ng-mocks';
+import { NATIVE_BACKUP_FILE_WRITER } from './native-backup-file';
 import { SettingsBackupFacade } from './settings-backup.facade';
 import { SettingsSnackbarService } from './settings-snackbar.service';
 import {
@@ -20,7 +21,11 @@ import {
 describe('SettingsBackupFacade', () => {
     let facade: SettingsBackupFacade;
     let playlistBackupService: PlaylistBackupService;
+    let nativeBackupWriter: jest.Mock;
     const originalElectron = window.electron;
+    const capacitorWindow = window as unknown as {
+        Capacitor?: { isNativePlatform?: () => boolean };
+    };
 
     /** The component normally supplies a paint frame; tests skip the wait */
     const noWait = () => Promise.resolve();
@@ -31,6 +36,10 @@ describe('SettingsBackupFacade', () => {
                 SettingsBackupFacade,
                 SettingsSnackbarService,
                 { provide: MatSnackBar, useClass: MatSnackBarStub },
+                {
+                    provide: NATIVE_BACKUP_FILE_WRITER,
+                    useValue: nativeBackupWriter,
+                },
                 MockProvider(PlaylistBackupService, {
                     exportBackup: jest
                         .fn()
@@ -56,10 +65,75 @@ describe('SettingsBackupFacade', () => {
 
     beforeEach(() => {
         window.electron = createElectronStub();
+        nativeBackupWriter = jest
+            .fn()
+            .mockResolvedValue(
+                '/storage/emulated/0/Documents/IPTVnator/backup.json'
+            );
     });
+
+    const originalCreateObjectUrl = window.URL.createObjectURL;
+    const originalRevokeObjectUrl = window.URL.revokeObjectURL;
 
     afterEach(() => {
         window.electron = originalElectron;
+        delete capacitorWindow.Capacitor;
+        Object.defineProperty(window.URL, 'createObjectURL', {
+            configurable: true,
+            value: originalCreateObjectUrl,
+        });
+        Object.defineProperty(window.URL, 'revokeObjectURL', {
+            configurable: true,
+            value: originalRevokeObjectUrl,
+        });
+        jest.restoreAllMocks();
+    });
+
+    it('exports through the native file writer on native shell', async () => {
+        window.electron = undefined as unknown as typeof window.electron;
+        capacitorWindow.Capacitor = { isNativePlatform: () => true };
+        configure();
+        const snackbar = jest.spyOn(
+            TestBed.inject(SettingsSnackbarService),
+            'open'
+        );
+        const createObjectURL = jest.fn();
+        Object.defineProperty(window.URL, 'createObjectURL', {
+            configurable: true,
+            value: createObjectURL,
+        });
+
+        await facade.exportData(noWait);
+
+        expect(nativeBackupWriter).toHaveBeenCalledWith(
+            BACKUP_EXPORT_RESULT.defaultFileName,
+            BACKUP_EXPORT_RESULT.json
+        );
+        expect(createObjectURL).not.toHaveBeenCalled();
+        expect(snackbar).toHaveBeenCalledWith('SETTINGS.BACKUP_EXPORTED_TO');
+        expect(facade.isExportingData()).toBe(false);
+    });
+
+    it('keeps the browser download outside a native shell', async () => {
+        window.electron = undefined as unknown as typeof window.electron;
+        configure();
+        const createObjectURL = jest.fn().mockReturnValue('blob:backup');
+        Object.defineProperty(window.URL, 'createObjectURL', {
+            configurable: true,
+            value: createObjectURL,
+        });
+        Object.defineProperty(window.URL, 'revokeObjectURL', {
+            configurable: true,
+            value: jest.fn(),
+        });
+        jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(
+            () => undefined
+        );
+
+        await facade.exportData(noWait);
+
+        expect(nativeBackupWriter).not.toHaveBeenCalled();
+        expect(createObjectURL).toHaveBeenCalledTimes(1);
     });
 
     it('shows an export busy state until the backup file has been written', async () => {

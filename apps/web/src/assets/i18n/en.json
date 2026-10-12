@@ -488,6 +488,7 @@
         "EXPORT_DATA": "Export",
         "EXPORTING_DATA": "Exporting…",
         "BACKUP_EXPORTED": "Playlist backup exported.",
+        "BACKUP_EXPORTED_TO": "Backup saved to {{path}}",
         "BACKUP_EXPORT_FAILED": "Playlist backup export failed.",
         "REMOVE_ALL": "Delete all playlists and playlist data",
         "REMOVE_ALL_BUTTON": "Delete all",

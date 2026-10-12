@@ -8,6 +8,7 @@ import {
     PlaylistBackupImportSummary,
     PlaylistBackupService,
 } from '@iptvnator/services/playlist-backup';
+import { NATIVE_BACKUP_FILE_WRITER } from './native-backup-file';
 import { SettingsSnackbarService } from './settings-snackbar.service';
 
 @Injectable()
@@ -18,6 +19,7 @@ export class SettingsBackupFacade {
     private readonly store = inject(Store);
     private readonly translate = inject(TranslateService);
     private readonly injector = inject(Injector);
+    private readonly writeNativeBackupFile = inject(NATIVE_BACKUP_FILE_WRITER);
 
     readonly isExportingData = signal(false);
 
@@ -31,6 +33,19 @@ export class SettingsBackupFacade {
 
         try {
             const backup = await this.playlistBackupService.exportBackup();
+
+            if (this.runtime.isNativeShell) {
+                const path = await this.writeNativeBackupFile(
+                    backup.defaultFileName,
+                    backup.json
+                );
+                this.settingsSnackbar.open(
+                    this.translate.instant('SETTINGS.BACKUP_EXPORTED_TO', {
+                        path,
+                    })
+                );
+                return;
+            }
 
             if (this.runtime.supportsDesktopFileSave && window.electron) {
                 const savePath = await window.electron.saveFileDialog(
