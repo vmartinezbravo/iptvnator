@@ -21,7 +21,11 @@ export const NATIVE_XTREAM_TIMEOUTS = {
 export interface NativeHttpResponse {
     readonly status: number;
     readonly data: unknown;
+    readonly headers?: Record<string, string>;
 }
+
+/** Same bound as common HTTP clients. */
+export const NATIVE_MAX_REDIRECTS = 5;
 
 /** What a CapacitorHttp rejection carries: the Java exception name as code. */
 export interface NativeHttpFailure {
@@ -113,4 +117,46 @@ export function playlistTitleFromUrl(url: string): string {
     const parsed = new URL(url);
     const segments = parsed.pathname.split('/').filter(Boolean);
     return segments[segments.length - 1] ?? parsed.hostname;
+}
+
+const redirectLocation = (response: NativeHttpResponse): string | null => {
+    if (response.status < 300 || response.status > 399) {
+        return null;
+    }
+    const headers = response.headers ?? {};
+    const key = Object.keys(headers).find(
+        (k) => k.toLowerCase() === 'location'
+    );
+    return key ? headers[key] : null;
+};
+
+/**
+ * Android's HttpURLConnection follows redirects within one protocol only, so
+ * a provider that moved from http to https answers 3xx with an empty body.
+ * Follow the Location (absolute or relative) the way desktop clients do;
+ * the target URL already carries the query.
+ */
+export async function getFollowingRedirects(
+    get: (options: HttpOptions) => Promise<NativeHttpResponse>,
+    options: HttpOptions
+): Promise<NativeHttpResponse> {
+    let current = options;
+    for (let hop = 0; ; hop++) {
+        const response = await get(current);
+        const location = redirectLocation(response);
+        if (!location) {
+            return response;
+        }
+        if (hop >= NATIVE_MAX_REDIRECTS) {
+            throw Object.assign(
+                new Error(`Too many redirects from ${options.url}`),
+                { status: response.status }
+            );
+        }
+        current = {
+            ...current,
+            url: new URL(location, current.url).href,
+            params: {},
+        };
+    }
 }

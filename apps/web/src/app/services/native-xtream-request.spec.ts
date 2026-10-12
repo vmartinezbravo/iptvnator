@@ -2,7 +2,9 @@ import {
     buildNativeXtreamRequest,
     buildXtreamApiUrl,
     describeNativeConnectionFailure,
+    getFollowingRedirects,
     interpretXtreamHttpResponse,
+    NATIVE_MAX_REDIRECTS,
     NATIVE_XTREAM_TIMEOUTS,
     playlistTitleFromUrl,
     toNativeTransportError,
@@ -112,5 +114,72 @@ describe('native Xtream request helpers', () => {
             'my.m3u'
         );
         expect(playlistTitleFromUrl('http://h/')).toBe('h');
+    });
+});
+
+describe('getFollowingRedirects', () => {
+    const ok = { status: 200, data: [{ id: 1 }], headers: {} };
+    const redirect = (location: string, status = 302) => ({
+        status,
+        data: '',
+        headers: { Location: location },
+    });
+
+    it('follows a cross-protocol redirect to its Location', async () => {
+        const get = jest
+            .fn()
+            .mockResolvedValueOnce(redirect('https://host/player_api.php?a=1'))
+            .mockResolvedValueOnce(ok);
+
+        await expect(
+            getFollowingRedirects(get, {
+                url: 'http://host/player_api.php',
+                params: { a: '1' },
+            })
+        ).resolves.toBe(ok);
+        expect(get).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                url: 'https://host/player_api.php?a=1',
+                params: {},
+            })
+        );
+    });
+
+    it('resolves a relative Location against the current URL', async () => {
+        const get = jest
+            .fn()
+            .mockResolvedValueOnce({
+                status: 301,
+                data: '',
+                headers: { location: '/new/player_api.php?a=1' },
+            })
+            .mockResolvedValueOnce(ok);
+
+        await getFollowingRedirects(get, { url: 'http://host/old/x.php' });
+
+        expect(get).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                url: 'http://host/new/player_api.php?a=1',
+            })
+        );
+    });
+
+    it('returns other answers untouched', async () => {
+        const notFound = { status: 404, data: 'missing', headers: {} };
+        const get = jest.fn().mockResolvedValue(notFound);
+
+        await expect(
+            getFollowingRedirects(get, { url: 'http://host/x' })
+        ).resolves.toBe(notFound);
+        expect(get).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives up with a readable error after too many redirects', async () => {
+        const get = jest.fn().mockResolvedValue(redirect('http://host/loop'));
+
+        await expect(
+            getFollowingRedirects(get, { url: 'http://host/loop' })
+        ).rejects.toThrow('Too many redirects');
+        expect(get).toHaveBeenCalledTimes(NATIVE_MAX_REDIRECTS + 1);
     });
 });

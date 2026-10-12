@@ -114,6 +114,31 @@ describe('NativeDataService', () => {
         );
     });
 
+    it('follows a provider redirect from http to https', async () => {
+        jest.spyOn(window, 'postMessage').mockImplementation(() => undefined);
+        nativeHttp.get
+            .mockResolvedValueOnce({
+                status: 302,
+                data: '',
+                headers: { Location: 'https://host:8443/player_api.php?x=1' },
+            })
+            .mockResolvedValueOnce({ status: 200, data: [{ id: 3 }] });
+
+        const result = await xtreamRequest({ action: 'get_live_streams' });
+
+        expect(nativeHttp.get).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                url: 'https://host:8443/player_api.php?x=1',
+            })
+        );
+        expect(result).toEqual(
+            expect.objectContaining({
+                type: XTREAM_RESPONSE,
+                payload: [{ id: 3 }],
+            })
+        );
+    });
+
     it('returns ERROR with the provider status on HTTP 4xx/5xx', async () => {
         jest.spyOn(window, 'postMessage').mockImplementation(() => undefined);
         nativeHttp.get.mockResolvedValue({ status: 503, data: 'busy' });

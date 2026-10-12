@@ -10,6 +10,7 @@ import {
 import {
     buildNativeXtreamRequest,
     describeNativeConnectionFailure,
+    getFollowingRedirects,
     interpretXtreamHttpResponse,
     NATIVE_XTREAM_TIMEOUTS,
     NativeHttpResponse,
@@ -69,7 +70,7 @@ export class NativeDataService extends PwaService {
         let response: NativeHttpResponse;
         try {
             response = await (payload.connectionTest
-                ? this.nativeHttp.get(request)
+                ? this.get(request)
                 : this.takePrefetchedOrGet(request));
         } catch (failure) {
             if (payload.connectionTest) {
@@ -123,8 +124,7 @@ export class NativeDataService extends PwaService {
         this.prefetch.start(
             request.url,
             { username: params['username'], password: params['password'] },
-            (prefetchParams) =>
-                this.nativeHttp.get({ ...request, params: prefetchParams })
+            (prefetchParams) => this.get({ ...request, params: prefetchParams })
         );
     }
 
@@ -136,8 +136,8 @@ export class NativeDataService extends PwaService {
             (request.params ?? {}) as Record<string, string>
         );
         return prefetched
-            ? prefetched.catch(() => this.nativeHttp.get(request))
-            : this.nativeHttp.get(request);
+            ? prefetched.catch(() => this.get(request))
+            : this.get(request);
     }
 
     override async forwardStalkerRequest(): Promise<never> {
@@ -164,6 +164,14 @@ export class NativeDataService extends PwaService {
         return from(this.downloadPlaylist(url, userAgent?.trim()));
     }
 
+    /** Every native request also follows redirects across protocols. */
+    private get(options: HttpOptions): Promise<NativeHttpResponse> {
+        return getFollowingRedirects(
+            (next) => this.nativeHttp.get(next),
+            options
+        );
+    }
+
     override getAppEnvironment(): string {
         return 'native';
     }
@@ -172,7 +180,7 @@ export class NativeDataService extends PwaService {
         url: string,
         userAgent?: string
     ): Promise<Playlist> {
-        const response = await this.nativeHttp.get({
+        const response = await this.get({
             url,
             responseType: 'text',
             ...(userAgent ? { headers: { 'User-Agent': userAgent } } : {}),
