@@ -35,10 +35,16 @@ function recommendations(options: {
     externalStates?: ExternalRecoveryStates;
     managedExternalPlayersAvailable?: boolean;
     nativeExternalPlayerAvailable?: boolean;
+    alternativeWebPlayersAvailable?: boolean;
+    bindingTarget?: (typeof InlinePlaybackPlayer)[keyof typeof InlinePlaybackPlayer];
 }) {
     return createWebPlayerRecommendations({
         diagnostic: options.diagnostic ?? DIAGNOSTIC,
-        binding: { generation: 1, target: InlinePlaybackPlayer.VideoJs },
+        binding: {
+            generation: 1,
+            target: options.bindingTarget ?? InlinePlaybackPlayer.VideoJs,
+        },
+        alternativeWebPlayersAvailable: options.alternativeWebPlayersAvailable,
         attemptedTargets: options.attemptedTargets ?? new Set(),
         externalStates: options.externalStates ?? externalStates(),
         managedExternalPlayersAvailable:
@@ -60,6 +66,33 @@ function targets(
 }
 
 describe('createWebPlayerRecommendations external outcomes', () => {
+    it('offers neither Video.js nor ArtPlayer where only the HTML5 player exists', () => {
+        const hlsDecodeError = {
+            ...DIAGNOSTIC,
+            code: PlaybackDiagnosticCode.MediaDecodeError,
+            source: PlaybackDiagnosticSource.Hls,
+            container: 'm3u8',
+            mimeType: 'application/vnd.apple.mpegurl',
+            player: InlinePlaybackPlayer.Html5,
+        };
+        const desktop = recommendations({
+            diagnostic: hlsDecodeError,
+            bindingTarget: InlinePlaybackPlayer.Html5,
+        });
+        const native = recommendations({
+            diagnostic: hlsDecodeError,
+            bindingTarget: InlinePlaybackPlayer.Html5,
+            managedExternalPlayersAvailable: false,
+            nativeExternalPlayerAvailable: true,
+            alternativeWebPlayersAvailable: false,
+        });
+
+        expect(targets(desktop)).toContain(InlinePlaybackPlayer.VideoJs);
+        expect(targets(native)).not.toContain(InlinePlaybackPlayer.VideoJs);
+        expect(targets(native)).not.toContain(InlinePlaybackPlayer.ArtPlayer);
+        expect(targets(native)).toContain('vlc');
+    });
+
     it('diagnostic view offers "Abrir en VLC" when supportsNativeExternalPlayer', () => {
         const native = recommendations({
             managedExternalPlayersAvailable: false,

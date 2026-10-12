@@ -23,6 +23,7 @@ export function createWebPlayerRecommendations(options: {
     readonly externalStates: ExternalRecoveryStates;
     readonly managedExternalPlayersAvailable: boolean;
     readonly nativeExternalPlayerAvailable?: boolean;
+    readonly alternativeWebPlayersAvailable?: boolean;
     readonly playbackExternallyTransferable: boolean;
     readonly isLive: boolean;
     readonly alternativeSourceCount: number;
@@ -46,6 +47,8 @@ export function createWebPlayerRecommendations(options: {
                 options.managedExternalPlayersAvailable,
             nativeExternalPlayerAvailable:
                 options.nativeExternalPlayerAvailable,
+            alternativeWebPlayersAvailable:
+                options.alternativeWebPlayersAvailable,
         }),
         source: {
             kind: sourceKind,

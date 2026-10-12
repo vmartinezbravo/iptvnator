@@ -343,6 +343,11 @@ export class RuntimeCapabilitiesService {
         );
     }
 
+    /** Video.js and ArtPlayer; the native shell offers only HTML5 (spec §7). */
+    get supportsAlternativeWebPlayers(): boolean {
+        return !this.isNativeShell;
+    }
+
     /** Native shell: streams open in a device player app (VLC) via the OS. */
     get supportsNativeExternalPlayer(): boolean {
         return this.isNativeShell;

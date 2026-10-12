@@ -263,6 +263,8 @@ export class WebPlayerViewComponent implements OnDestroy {
             this.runtime.supportsManagedExternalPlayers,
         nativeExternalPlayerAvailable: () =>
             this.runtime.supportsNativeExternalPlayer,
+        alternativeWebPlayersAvailable: () =>
+            this.runtime.supportsAlternativeWebPlayers !== false,
         tryAutoLiveFormat: (issue) => this.liveAutoFormat.tryFallback(issue),
         emitPlaybackFailed: (code) => this.playbackFailed.emit(code),
         emitExternalFallbackRequested: (request) =>

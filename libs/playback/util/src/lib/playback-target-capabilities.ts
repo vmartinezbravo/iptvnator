@@ -66,6 +66,8 @@ export function createPlaybackTargetCapabilities(options: {
     readonly managedExternalPlayersAvailable: boolean;
     /** Native shell: the OS hands the stream to VLC; MPV does not exist. */
     readonly nativeExternalPlayerAvailable?: boolean;
+    /** False where only the HTML5 player ships (native shell). */
+    readonly alternativeWebPlayersAvailable?: boolean;
 }): readonly PlaybackTargetCapability[] {
     const inlineTargets = [
         InlinePlaybackPlayer.VideoJs,
@@ -77,10 +79,13 @@ export function createPlaybackTargetCapabilities(options: {
             options.sourceKind,
             target
         );
+        const shipped =
+            target === InlinePlaybackPlayer.Html5 ||
+            options.alternativeWebPlayersAvailable !== false;
         return {
             kind: 'inline' as const,
             target,
-            available: engineFamily !== null,
+            available: engineFamily !== null && shipped,
             engineFamily,
         };
     });

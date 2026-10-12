@@ -46,6 +46,19 @@ describe('RuntimeCapabilitiesService', () => {
         expect(service.isPwa).toBe(true);
     });
 
+    it('supportsAlternativeWebPlayers is false only on the native shell', () => {
+        const capacitorWindow = window as unknown as {
+            Capacitor?: { isNativePlatform?: () => boolean };
+        };
+        testWindow.electron = undefined;
+        const service = new RuntimeCapabilitiesService();
+
+        capacitorWindow.Capacitor = { isNativePlatform: () => true };
+        expect(service.supportsAlternativeWebPlayers).toBe(false);
+        delete capacitorWindow.Capacitor;
+        expect(service.supportsAlternativeWebPlayers).toBe(true);
+    });
+
     it('supportsNativeExternalPlayer follows isNativeShell', () => {
         const capacitorWindow = window as unknown as {
             Capacitor?: { isNativePlatform?: () => boolean };
