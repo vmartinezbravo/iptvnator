@@ -44,6 +44,7 @@ import { AppDateLocaleService } from './app-date-locales';
 import { SettingsService } from './services/settings.service';
 import { ParentalLockEnforcementService } from './services/parental-lock-enforcement.service';
 import { PlaybackKeepAwakeService } from './services/playback-keep-awake.service';
+import { logNativeMediaCodecs } from './services/native-media-codecs';
 import { PlaylistOpenRequestService } from './services/playlist-open-request.service';
 import { AppUpdateNotificationPanelComponent } from './app-update-notification-panel.component';
 import { AppStartupStatusComponent } from './app-startup-status.component';
@@ -111,6 +112,9 @@ export class AppComponent implements OnInit {
         // Keep the display awake while a built-in player is playing video
         // (Electron powerSaveBlocker / PWA Screen Wake Lock, issue #1095).
         this.playbackKeepAwake.start();
+
+        // Native shell only: log MSE codec support for device checks.
+        void logNativeMediaCodecs(this.runtime);
 
         // Parental lock: load the PIN hash and lock store, then keep the
         // in-memory catalogs in step with lock/unlock (issue #285).

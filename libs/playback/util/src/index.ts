@@ -1,3 +1,4 @@
+export * from './lib/diagnostics/media-codec-probe';
 export * from './lib/diagnostics/playback-diagnostics.util';
 export * from './lib/diagnostics/shaka-error-classifier';
 export * from './lib/diagnostics/shaka-error-contract';
