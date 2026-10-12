@@ -346,7 +346,16 @@ describe('NativeDataService', () => {
                 'http://host:8080/movie/u/p/7.mkv',
                 'Film'
             );
-            expect(result).toBeUndefined();
+            // An opened session, so the diagnostic panel does not read the
+            // hand-off as a failure; Android cannot close it afterwards.
+            expect(result).toEqual(
+                expect.objectContaining({
+                    player: event === OPEN_VLC_PLAYER ? 'vlc' : 'mpv',
+                    status: 'opened',
+                    canClose: false,
+                    title: 'Film',
+                })
+            );
             expect(snackBar.open).not.toHaveBeenCalled();
         }
     );
@@ -354,9 +363,12 @@ describe('NativeDataService', () => {
     it('shows install hint when no app handles the intent', async () => {
         externalPlayer.mockResolvedValue(false);
 
-        await service.sendIpcEvent<Promise<unknown>>(OPEN_VLC_PLAYER, {
-            url: 'http://host:8080/live/u/p/1.ts',
-        });
+        const result = await service.sendIpcEvent<Promise<unknown>>(
+            OPEN_VLC_PLAYER,
+            { url: 'http://host:8080/live/u/p/1.ts' }
+        );
+
+        expect(result).toBeUndefined();
 
         expect(externalPlayer).toHaveBeenCalledWith(
             'http://host:8080/live/u/p/1.ts',

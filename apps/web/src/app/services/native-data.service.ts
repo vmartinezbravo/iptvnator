@@ -4,8 +4,10 @@ import { CapacitorHttp, HttpOptions } from '@capacitor/core';
 import { from, Observable } from 'rxjs';
 import { PlaylistsService } from '@iptvnator/services';
 import {
+    ExternalPlayerSession,
     OPEN_MPV_PLAYER,
     OPEN_VLC_PLAYER,
+    PlayerContentInfo,
     Playlist,
     PortalDebugTransport,
     XTREAM_PREFETCH_LIVE_CATALOGUE,
@@ -39,6 +41,13 @@ export const NATIVE_HTTP = new InjectionToken<NativeHttpClient>('NATIVE_HTTP', {
 });
 
 const STALKER_UNSUPPORTED_STATUS = 501;
+
+/** The part of the desktop player launch payload Android can use. */
+interface ExternalLaunchPayload {
+    readonly url: string;
+    readonly title?: string;
+    readonly contentInfo?: PlayerContentInfo;
+}
 
 interface LiveCataloguePrefetch {
     readonly url: string;
@@ -109,7 +118,8 @@ export class NativeDataService extends PwaService {
         }
         if (type === OPEN_VLC_PLAYER || type === OPEN_MPV_PLAYER) {
             return this.openExternalPlayer(
-                payload as { url: string; title?: string }
+                type === OPEN_VLC_PLAYER ? 'vlc' : 'mpv',
+                payload as ExternalLaunchPayload
             ) as T;
         }
         return super.sendIpcEvent<T>(type, payload);
@@ -117,25 +127,37 @@ export class NativeDataService extends PwaService {
 
     /**
      * The desktop MPV/VLC launch, on Android: the stream goes to a player
-     * app through the OS. There is no session to track, so it resolves void.
+     * app through the OS. A hand-off resolves as an opened session (which
+     * Android cannot close or follow afterwards); no player app resolves
+     * void, which callers read as a failed launch.
      */
-    private async openExternalPlayer(payload: {
-        url: string;
-        title?: string;
-    }): Promise<void> {
+    private async openExternalPlayer(
+        player: ExternalPlayerSession['player'],
+        payload: ExternalLaunchPayload
+    ): Promise<ExternalPlayerSession | void> {
         const launched = await this.externalPlayer(
             payload.url,
             payload.title || undefined
         );
-        if (!launched) {
-            this.nativeSnackBar.open(
-                this.translateService.instant(
-                    'PORTALS.EXTERNAL_PLAYER_NOT_INSTALLED'
-                ),
-                this.translateService.instant('CLOSE'),
-                { duration: 5000 }
-            );
+        if (launched) {
+            const now = new Date().toISOString();
+            return {
+                id: `native-${player}-${Date.now()}`,
+                player,
+                status: 'opened',
+                title: payload.title ?? '',
+                streamUrl: payload.url,
+                contentInfo: payload.contentInfo,
+                startedAt: now,
+                updatedAt: now,
+                canClose: false,
+            };
         }
+        this.nativeSnackBar.open(
+            this.translateService.instant('PORTALS.EXTERNAL_PLAYER_NOT_INSTALLED'),
+            this.translateService.instant('CLOSE'),
+            { duration: 5000 }
+        );
     }
 
     /**
