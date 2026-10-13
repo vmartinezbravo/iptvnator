@@ -1329,6 +1329,30 @@ y M3U no lo tienen.
   - **Pendiente de la Task 5.2** [Víctor, 2026-10-13]: en la rejilla de episodios de una temporada, la flecha abajo pasa por el botón «Mark as Watched» de cada episodio (queda abajo a la derecha del episodio) antes de llegar a la fila siguiente.
   - **Pendiente de la Task 5.4** [Víctor, 2026-10-13]: probar CH+/CH− en el Stick con el reproductor web (en el directo Xtream; CH+ = canal siguiente, como en Media3). Hay que elegir el reproductor web en los ajustes y volver después al ajuste anterior.
   - **Vigilar** [Víctor, 2026-10-13]: una vez, justo después de instalar y reiniciar, el D-pad no movió el foco en el menú lateral, y no se repitió. Si vuelve a pasar, investigarlo con la skill `systematic-debugging` antes de tocar código.
+  - **Prueba con el mando de Víctor** [2026-10-13]: la 5.2 pasó los tests, pero la navegación real va mal.
+    1. Live TV: el foco da vueltas entre las categorías visibles y no hace scroll.
+    2. Tras el zapping, arriba/abajo alterna entre 2 carpetas.
+    3. Películas: del menú salta a las películas sin pasar por las carpetas y alterna entre las 2 primeras.
+    4. Series: saltos sin sentido.
+    5. El launcher muestra una app con icono de conector.
+
+    Se tratan en orden, parando tras cada punto: A diagnóstico, B mapa de foco, C modo TV, D indicador de carga, E launcher.
+  - **Diagnóstico (punto A)** [2026-10-13], reproducido en el Stick con teclas reales (adb) y el foco leído por CDP. Hay dos causas, y ninguna es el scroll virtual.
+    1. **Fallo del polyfill original 1.3.1: el origen de búsqueda se queda viejo.**
+       - Mecanismo: cuando el elemento enfocado desaparece o pasa a medir 0, el polyfill guarda su rectángulo en `searchOriginRect` (línea 782 de la copia) y no lo vuelve a poner a `null` nunca. Desde ese momento, todas las búsquedas parten de ese rectángulo viejo y no del foco real, y como el elemento enfocado se excluye de los candidatos, el foco alterna entre los dos vecinos de ese punto. Dura hasta reiniciar la app.
+       - Disparadores: cualquier cosa que quite el elemento enfocado: un cambio de vista, que Angular vuelva a pintar una lista o la vuelta del reproductor.
+       - Prueba: tras recargar, el menú lateral recorre bien arriba y abajo. Al ocultar Live TV mientras tiene el foco y pulsar una tecla, abajo desde Sources salta a Series y luego alterna Series ↔ Recently added; arriba alterna Movies ↔ Recently viewed.
+       - Explica los bucles de pareja de las observaciones 2, 3 y 4.
+       - La línea es idéntica en el paquete de npm, no la introdujo nuestra copia.
+    2. **Regresión de nuestra copia: `hitTest()` ya no descarta lo recortado por un contenedor con scroll.**
+       - Mecanismo: sin `elementFromPoint`, un candidato que empieza dentro de la pantalla cuenta como visible aunque su contenedor lo recorte. En Live TV la vista de categorías acaba en y=530 y la categoría 12 empieza en y=539. El polyfill la enfoca con `preventScroll`, así que no hace scroll y queda oculta. En la pulsación siguiente, como el foco está fuera de su contenedor, el polyfill busca desde el contenedor y vuelve a la primera categoría.
+       - Prueba: con la comprobación original evaluada en el Stick, la categoría 12 es la única de las 40 en la que nuestra copia dice «visible» y la original «no visible».
+       - Explica la observación 1, y aparece igual en Películas.
+    3. **Defectos de recorrido, sin bucle, que se tratan en el punto B.**
+       - En Live TV, derecha desde el menú lleva a un botón de la cabecera, y abajo desde ahí vuelve al menú.
+       - Abajo desde el último botón del menú (Ajustes) entra en las categorías.
+
+    Sin verificar: el zapping, porque reproducir canales añade entradas a los recientes reales; y la rejilla de series, que se comprobará tras el arreglo. Ningún cambio de código hasta que Víctor apruebe el diagnóstico.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
