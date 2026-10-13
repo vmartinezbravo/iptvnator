@@ -1089,3 +1089,23 @@ Mismo método que la Task 5.1a: Fire TV Stick, sin inspector,
 - No hizo falta que el menú lateral gestionara arriba/abajo por su cuenta.
 - El WebView de Fire TV ya trae navegación espacial nativa: era la que movía
   el foco en las mediciones de la 5.1a.
+
+### Tras arreglar los bucles del D-pad (Task 5.5) — 2026-10-13
+
+Mismo método. La copia del polyfill olvida la posición guardada vieja y su
+`hitTest()` descarta lo recortado por un contenedor con scroll.
+
+| Escenario | Métrica | Copia de la 5.2 | Copia con los arreglos | Objetivo |
+|---|---|--:|--:|--:|
+| Menú lateral con el D-pad | respuesta a la tecla (mediana / p90) | 70 / 97 ms | **54 / 97 ms** | ≤ 100 / 120 ✅ |
+| | fps | 57,4 | 57,6 | ≥ 55 ✅ |
+| | tareas largas de más de 100 ms | 0 | 0 | 0 ✅ |
+| Cambio de categoría | frame más largo por cambio | 189 ms | 181 ms | (fase 6) |
+| Cambio de sección | frame más largo por cambio | 562 ms | 633 ms | (fase 6) |
+| Scroll de la lista de canales | fps | 36,5 | 35,5 | no empeora ✅ |
+
+- Leer el `overflow` de cada antepasado una vez por pulsación no se nota en la
+  respuesta a la tecla.
+- El cambio de sección sube 71 ms, cerca de la variación entre rondas
+  (±50 ms). No pasa por el D-pad (es un cambio de ruta) y su objetivo está en
+  la fase 6.

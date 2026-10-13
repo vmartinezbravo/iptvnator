@@ -1368,6 +1368,19 @@ y M3U no lo tienen.
       - En Películas, se cambió de categoría con el foco ya en la rejilla.
       - En ninguno de los dos casos sale de la página el elemento enfocado: las filas y las tarjetas se completan sobre el mismo elemento, y abajo, derecha y arriba siguen en orden.
       - La vuelta del reproductor no se probó, porque reproducir añade entradas a los recientes reales.
+  - **Paso 2 hecho**: en la copia, `hitTest()` exige que el candidato se solape con cada antepasado que recorta su `overflow`. Sigue sin usar `elementFromPoint`, y el estilo de cada antepasado se lee una vez por pulsación.
+    - Tests: «does not move the focus to a category hidden below the list edge», con la geometría de la categoría 12 de Live TV, falló antes del arreglo. «still moves to a category the list edge cuts in part» protege el caso de una categoría recortada solo en parte.
+  - **Paso 3 hecho** (Stick, teclas reales; el chivato no detectó ninguna pérdida del elemento enfocado):
+    - **Menú lateral:** arriba y abajo en orden en las dos direcciones; abajo se para en Ajustes y ya no entra en las categorías.
+    - **Live TV:** las categorías hacen scroll hasta la 21 y la rejilla de canales avanza por filas. Al llegar al borde, el polyfill desplaza la lista 40 px por pulsación, así que a veces una pulsación solo hace scroll.
+    - **Películas:** categorías y rejilla sin bucles; la rejilla avanza fila a fila con scroll.
+    - **Series:** rejilla bien. En la ficha, el foco baja descripción → reproducir → temporada → episodio → «Mark as Watched» → siguiente episodio → flecha del carrusel. Desde ahí, abajo salta a las categorías del panel izquierdo, y arriba desde la descripción también.
+    - **Carpetas tras el zapping:** pendiente de que Víctor lo pruebe con el mando, para no añadir canales a sus recientes.
+    - **Medición** (`docs/android-measurements.md`): respuesta por tecla 54/97 ms (antes 70/97), dentro de 100/120.
+    - **Siguen los saltos entre paneles, sin bucle**, para el paso 4:
+      - derecha desde el menú lleva a veces a un botón de la cabecera, y abajo desde ahí vuelve al menú;
+      - izquierda desde una rejilla vuelve a la categoría que está a su altura, no a la elegida;
+      - en la ficha de serie, abajo al final y arriba al principio saltan a las categorías.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
