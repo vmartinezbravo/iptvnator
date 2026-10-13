@@ -1360,7 +1360,14 @@ y M3U no lo tienen.
     4. Solo si los defectos de recorrido siguen molestando, proponer un mapa de foco mínimo.
     5. C, D y E.
   - **Paso 1 hecho**: en la copia del polyfill, la posición guardada se olvida cuando un elemento recibe el foco y se vuelve a calcular en cada búsqueda. Solo se usa mientras su elemento siga en la página. El comentario de origen dice que el fallo ya estaba en la 1.3.1. Tests: «forgets the hidden element position once the focus reaches another element» y «forgets the position of a focused element that left the page», que fallaron antes del arreglo, y «keeps going from where a focused element was when it is hidden in place», como guarda de lo que ya funcionaba.
-    - Coste asumido: si el elemento enfocado sale de la página (por ejemplo, porque Angular vuelve a pintar la fila), la tecla siguiente busca desde la página y no desde donde estaba ese elemento.
+    - **Ajuste** [Víctor, 2026-10-13]: la posición guardada de un elemento que sale de la página se conserva hasta que otro elemento recibe el foco, que es lo que corta los bucles. Así, tras repintar una fila, la tecla siguiente continúa desde donde estaba.
+      - Para que eso funcione hizo falta un segundo cambio: en la 1.3.1 la búsqueda desde el borde del contenedor sustituía siempre al candidato hallado desde la posición guardada, de modo que con el foco en `body` esa posición no servía.
+      - Test: «keeps going from where a focused element was when it left the page». Falló antes del ajuste, porque iba al primer elemento de la página.
+    - **Repintado real en el Stick**:
+      - En Live TV, se cambió de categoría y se entró en la lista mientras aún mostraba las filas ligeras.
+      - En Películas, se cambió de categoría con el foco ya en la rejilla.
+      - En ninguno de los dos casos sale de la página el elemento enfocado: las filas y las tarjetas se completan sobre el mismo elemento, y abajo, derecha y arriba siguen en orden.
+      - La vuelta del reproductor no se probó, porque reproducir añade entradas a los recientes reales.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;

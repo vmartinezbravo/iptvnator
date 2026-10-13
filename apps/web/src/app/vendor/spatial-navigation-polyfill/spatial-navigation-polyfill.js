@@ -19,9 +19,12 @@
  * rect in searchOriginRect and never cleared it, so every later search
  * started from that old rect instead of the focused element, and the
  * D-pad bounced between the two neighbours of that point until the page
- * reloaded. The copy clears it whenever an element gains the focus, works
- * it out again on every search, and uses it only while its element is
- * still in the page.
+ * reloaded. The copy clears it whenever an element gains the focus and
+ * works it out again on every search. Until then a key still continues
+ * from where a removed or hidden focused element was: for that, in
+ * spatialNavigationSearch() the search from the container's edge no longer
+ * replaces the candidate found from the saved rect (in 1.3.1 it always
+ * did, so the saved rect had no effect once the focus fell to the body).
  *
  * 2. In hitTest(): after the viewport bounds check, the original
  * called document.elementFromPoint() at up to three points of every
@@ -429,7 +432,9 @@
         bestTarget = selectBestCandidate(targetElement, getFilteredSpatialNavigationCandidates(targetElement, dir, internalCandidates, container), dir);
       }
 
-      if ((internalCandidates && internalCandidates.length > 0) && !(targetElement.nodeName === 'INPUT')) {
+      // IPTVnator: the search from the container's edge no longer replaces
+      // a candidate found from the saved search origin rect.
+      if (!bestTarget && (internalCandidates && internalCandidates.length > 0) && !(targetElement.nodeName === 'INPUT')) {
         bestTarget = selectBestCandidateFromEdge(targetElement, internalCandidates, dir);
       }
 
@@ -790,10 +795,9 @@
       searchOrigin = document.documentElement;
     }
     // When the previous search origin lost its focus by blur: (1) display:none () element size turned into zero
-    // IPTVnator: the saved rect is worked out again on every search, and only
-    // while its element is still in the page.
+    // IPTVnator: the saved rect is worked out again on every search.
     searchOriginRect = null;
-    if (savedSearchOrigin.element && savedSearchOrigin.element.isConnected &&
+    if (savedSearchOrigin.element &&
       ((getBoundingClientRect(savedSearchOrigin.element).height === 0) || (getBoundingClientRect(savedSearchOrigin.element).width === 0))) {
       searchOriginRect = savedSearchOrigin.rect;
     }

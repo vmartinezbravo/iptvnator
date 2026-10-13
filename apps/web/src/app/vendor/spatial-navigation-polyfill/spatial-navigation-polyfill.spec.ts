@@ -90,13 +90,13 @@ describe('vendored spatial navigation polyfill', () => {
         expect(document.activeElement).toBe(button('c'));
     });
 
-    it('forgets the position of a focused element that left the page', () => {
+    it('keeps going from where a focused element was when it left the page', () => {
         button('b').focus();
         button('b').remove();
 
-        // From the page, not from where b was (which would pick a).
-        navigate('up');
+        // From where b was, not from the page (which would pick a).
+        navigate('down');
 
-        expect(document.activeElement).toBe(button('d'));
+        expect(document.activeElement).toBe(button('c'));
     });
 });
