@@ -1327,6 +1327,8 @@ y M3U no lo tienen.
 
   Sin rediseñar. Cada ajuste va bajo una media query o una clase del runtime nativo, para no cambiar el escritorio.
   - **Pendiente de la Task 5.2** [Víctor, 2026-10-13]: en la rejilla de episodios de una temporada, la flecha abajo pasa por el botón «Mark as Watched» de cada episodio (queda abajo a la derecha del episodio) antes de llegar a la fila siguiente.
+  - **Pendiente de la Task 5.4** [Víctor, 2026-10-13]: probar CH+/CH− en el Stick con el reproductor web (en el directo Xtream; CH+ = canal siguiente, como en Media3). Hay que elegir el reproductor web en los ajustes y volver después al ajuste anterior.
+  - **Vigilar** [Víctor, 2026-10-13]: una vez, justo después de instalar y reiniciar, el D-pad no movió el foco en el menú lateral, y no se repitió. Si vuelve a pasar, investigarlo con la skill `systematic-debugging` antes de tocar código.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
