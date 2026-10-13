@@ -1302,6 +1302,22 @@ Atrás cierra sin salir.
 - [ ] **Step 2: Implementar.** Los tests pasan con `pnpm nx test ui-playback`.
 - [ ] **Step 3: Commit** `feat(playback): media keys and D-pad reveal for TV remotes`.
 
+**Reparto de teclas** [2026-10-13]. Desde la fase 4c el reproductor de Android
+es Media3, en su propia actividad a pantalla completa (`NativePlayerActivity`).
+Mientras está delante, el WebView no recibe ninguna tecla; no hay dos
+manejadores para la misma pulsación.
+
+| Tecla | Media3 delante (`NativePlayerActivity`) | App delante (WebView) |
+|---|---|---|
+| Atrás | Cierra el reproductor y devuelve la posición (`OnBackPressedCallback`) | `TvBackNavigationService` (Task 5.3) |
+| Arriba / abajo, CH+ / CH− | Directo: zapping (`ZapKeys`; CH+ y arriba, siguiente) | Fuera del reproductor web: navegación espacial (Task 5.2). CH+ / CH−: zapping del directo Xtream con el reproductor web (`channelKeyDirection` → `handleRemoteChannelChange`; CH+, siguiente) |
+| D-pad y OK | VOD: controles de Media3 (`PlayerView`); directo: sin controles | Reproductor web con los controles ocultos: los muestra y enfoca play; con los controles visibles, navegación espacial entre botones |
+| Play/pausa, play, pausa, avance y retroceso | VOD: controles de Media3 (`PlayerView`) | Reproductor web: `ControlsShortcuts` (±10 s), solo en el runtime nativo; en escritorio y en la PWA siguen en manos del navegador y del sistema |
+
+El reproductor web solo se usa en Android si se elige en los ajustes en lugar
+de Media3. CH+ / CH− con el reproductor web está en el directo Xtream; Stalker
+y M3U no lo tienen.
+
 ### Task 5.5: Ajuste al viewport de 960×540 y recorrido completo con el mando
 
 - [ ] **Step 1: Revisar los tres recorridos y los ajustes en el Stick (960×540 CSS).** Corrige solo estilos, con la skill `frontend-design` limitada a foco y tamaños:

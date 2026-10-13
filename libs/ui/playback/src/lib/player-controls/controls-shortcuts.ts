@@ -1,3 +1,6 @@
+import { afterNextRender, inject, Injector } from '@angular/core';
+import { RuntimeCapabilitiesService } from '@iptvnator/services';
+
 export interface ControlsShortcutHandlers {
     isAvailable: () => boolean;
     /**
@@ -20,7 +23,25 @@ export interface ControlsShortcutHandlers {
     seekBy: (deltaSeconds: number) => void;
     adjustVolume: (delta: number) => void;
     toggleMute: () => void;
+    /**
+     * True on the TV shell, where a remote drives the player: its media keys
+     * work whatever button has the focus, and a D-pad press first brings
+     * back hidden controls. Elsewhere the browser or OS owns media keys.
+     */
+    tvRemote?: () => boolean;
+    isPaused?: () => boolean;
+    controlsVisible?: () => boolean;
+    revealAndFocusPlay?: () => void;
 }
+
+const DPAD_KEYS = new Set([
+    'ArrowUp',
+    'ArrowDown',
+    'ArrowLeft',
+    'ArrowRight',
+    'Enter',
+]);
+const REMOTE_SEEK_SECONDS = 10;
 
 const INTERACTIVE_SELECTOR = [
     'a[href]',
@@ -108,6 +129,10 @@ export class ControlsShortcuts {
             return;
         }
 
+        if (handlers.tvRemote?.() && this.handleRemote(event, handlers)) {
+            return;
+        }
+
         if (
             this.shouldIgnore(event) ||
             ControlsShortcuts.resolvePlaybackOwner() !== this
@@ -173,6 +198,58 @@ export class ControlsShortcuts {
     }
 
     /**
+     * The TV remote's keys; true when the event was taken. Media keys skip
+     * the interactive-control check (the focus is always on a button there)
+     * and, like the D-pad reveal, need this instance to own playback.
+     */
+    private handleRemote(
+        event: KeyboardEvent,
+        handlers: ControlsShortcutHandlers
+    ): boolean {
+        if (
+            event.metaKey ||
+            event.ctrlKey ||
+            event.altKey ||
+            ControlsShortcuts.resolvePlaybackOwner() !== this
+        ) {
+            return false;
+        }
+        if (DPAD_KEYS.has(event.key)) {
+            if (handlers.controlsVisible?.() !== false) return false;
+            event.preventDefault();
+            handlers.revealAndFocusPlay?.();
+            return true;
+        }
+        const paused = handlers.isPaused?.() ?? false;
+        switch (event.key) {
+            case 'MediaPlayPause':
+            case 'MediaPlay':
+            case 'MediaPause':
+                if (!handlers.canTogglePaused()) return false;
+                event.preventDefault();
+                if (
+                    event.key === 'MediaPlayPause' ||
+                    (event.key === 'MediaPlay') === paused
+                ) {
+                    handlers.togglePaused();
+                }
+                return true;
+            case 'MediaFastForward':
+            case 'MediaRewind':
+                if (!handlers.canSeek()) return false;
+                event.preventDefault();
+                handlers.seekBy(
+                    event.key === 'MediaFastForward'
+                        ? REMOTE_SEEK_SECONDS
+                        : -REMOTE_SEEK_SECONDS
+                );
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
      * Ignore modified playback keys so app/native shortcuts retain ownership,
      * and ignore events originating from an interactive control anywhere in
      * the composed path. Escape is handled before this check so it can still
@@ -225,4 +302,40 @@ export class ControlsShortcuts {
         }
         return last;
     }
+}
+
+type TvRemoteHandlers = Pick<
+    ControlsShortcutHandlers,
+    'tvRemote' | 'isPaused' | 'controlsVisible' | 'revealAndFocusPlay'
+>;
+
+/**
+ * The shortcut handlers a TV remote needs: on the native shell its media
+ * keys drive playback and a D-pad press over hidden controls brings them
+ * back with the focus on play. Call in an injection context.
+ */
+export function tvRemoteShortcuts(
+    view: { isPaused: () => boolean; controlsAreVisible: () => boolean },
+    host: HTMLElement,
+    reveal: () => void
+): TvRemoteHandlers {
+    const isNativeShell = inject(RuntimeCapabilitiesService).isNativeShell;
+    const injector = inject(Injector);
+    return {
+        tvRemote: () => isNativeShell,
+        isPaused: () => view.isPaused(),
+        controlsVisible: () => view.controlsAreVisible(),
+        revealAndFocusPlay: () => {
+            reveal();
+            afterNextRender(
+                () =>
+                    host
+                        .querySelector<HTMLElement>(
+                            '[data-test-id="player-controls-play"]'
+                        )
+                        ?.focus(),
+                { injector }
+            );
+        },
+    };
 }

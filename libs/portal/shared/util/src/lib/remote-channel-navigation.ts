@@ -51,6 +51,27 @@ export function getAdjacentChannelItem<T>(
 }
 
 /**
+ * The TV remote's channel keys as a list direction: CH+ moves to the next
+ * channel ('down' the list) and CH- to the previous one, as the Media3
+ * player does. Null for any other, modified or already handled key.
+ */
+export function channelKeyDirection(
+    event: KeyboardEvent
+): RemoteChannelDirection | null {
+    if (
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+    ) {
+        return null;
+    }
+    if (event.key === 'ChannelUp') return 'down';
+    if (event.key === 'ChannelDown') return 'up';
+    return null;
+}
+
+/**
  * Returns the Nth item in a list (1-based index), or null if out of range.
  */
 export function getChannelItemByNumber<T>(

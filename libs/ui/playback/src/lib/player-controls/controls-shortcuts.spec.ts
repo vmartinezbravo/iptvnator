@@ -363,3 +363,114 @@ function dispatchKey(key: string, init: KeyboardEventInit = {}): boolean {
     document.dispatchEvent(event);
     return event.defaultPrevented;
 }
+
+describe('ControlsShortcuts with a TV remote', () => {
+    let shortcuts: ControlsShortcuts;
+    let paused: boolean;
+    let visible: boolean;
+    let button: HTMLButtonElement;
+    const handlers = {
+        isAvailable: () => true,
+        canTogglePaused: () => true,
+        canSeek: () => true,
+        canAdjustVolume: () => true,
+        canToggleFullscreen: () => true,
+        onEscape: jest.fn(),
+        togglePaused: jest.fn(),
+        toggleFullscreen: jest.fn(),
+        seekBy: jest.fn(),
+        adjustVolume: jest.fn(),
+        toggleMute: jest.fn(),
+        tvRemote: () => true,
+        isPaused: () => paused,
+        controlsVisible: () => visible,
+        revealAndFocusPlay: jest.fn(),
+    };
+
+    /** On the TV the focus sits on a control button almost always. */
+    const press = (key: string) => {
+        const event = new KeyboardEvent('keydown', {
+            key,
+            bubbles: true,
+            cancelable: true,
+        });
+        button.dispatchEvent(event);
+        return event.defaultPrevented;
+    };
+
+    beforeEach(() => {
+        paused = false;
+        visible = true;
+        jest.clearAllMocks();
+        button = document.createElement('button');
+        document.body.appendChild(button);
+        button.focus();
+        shortcuts = new ControlsShortcuts();
+        shortcuts.attach(handlers);
+    });
+
+    afterEach(() => {
+        shortcuts.detach();
+        button.remove();
+    });
+
+    it('toggles playback with MediaPlayPause', () => {
+        expect(press('MediaPlayPause')).toBe(true);
+        expect(handlers.togglePaused).toHaveBeenCalledTimes(1);
+    });
+
+    it('plays with MediaPlay only while paused', () => {
+        press('MediaPlay');
+        expect(handlers.togglePaused).not.toHaveBeenCalled();
+
+        paused = true;
+        expect(press('MediaPlay')).toBe(true);
+        expect(handlers.togglePaused).toHaveBeenCalledTimes(1);
+    });
+
+    it('pauses with MediaPause only while playing', () => {
+        paused = true;
+        press('MediaPause');
+        expect(handlers.togglePaused).not.toHaveBeenCalled();
+
+        paused = false;
+        expect(press('MediaPause')).toBe(true);
+        expect(handlers.togglePaused).toHaveBeenCalledTimes(1);
+    });
+
+    it('seeks 10 s forward with MediaFastForward', () => {
+        expect(press('MediaFastForward')).toBe(true);
+        expect(handlers.seekBy).toHaveBeenCalledWith(10);
+    });
+
+    it('seeks 10 s back with MediaRewind', () => {
+        expect(press('MediaRewind')).toBe(true);
+        expect(handlers.seekBy).toHaveBeenCalledWith(-10);
+    });
+
+    it.each(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'])(
+        'D-pad press reveals hidden controls and focuses play (%s)',
+        (key) => {
+            visible = false;
+
+            expect(press(key)).toBe(true);
+            expect(handlers.revealAndFocusPlay).toHaveBeenCalledTimes(1);
+            expect(handlers.seekBy).not.toHaveBeenCalled();
+            expect(handlers.adjustVolume).not.toHaveBeenCalled();
+            expect(handlers.togglePaused).not.toHaveBeenCalled();
+        }
+    );
+
+    it('leaves the D-pad to spatial navigation while the controls show', () => {
+        expect(press('ArrowDown')).toBe(false);
+        expect(handlers.revealAndFocusPlay).not.toHaveBeenCalled();
+    });
+
+    it('leaves media keys alone without a TV remote', () => {
+        shortcuts.detach();
+        shortcuts.attach({ ...handlers, tvRemote: () => false });
+
+        expect(press('MediaPlayPause')).toBe(false);
+        expect(handlers.togglePaused).not.toHaveBeenCalled();
+    });
+});

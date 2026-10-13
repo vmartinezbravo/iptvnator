@@ -21,7 +21,7 @@ import { ControlsLayout } from './controls-layout';
 import { ControlsMenuSelection } from './controls-menu-selection';
 import { type ControlsMenu, ControlsMenuState } from './controls-menu-state';
 import { ControlsSettings } from './controls-settings';
-import { ControlsShortcuts } from './controls-shortcuts';
+import { ControlsShortcuts, tvRemoteShortcuts } from './controls-shortcuts';
 import { ControlsStreamStats } from './controls-stream-stats';
 import { ControlsSurface } from './controls-surface';
 import { ControlsTimeline } from './controls-timeline';
@@ -244,6 +244,7 @@ export class PlayerControlsComponent implements OnDestroy {
             seekBy: (delta) => this.seekBy(delta),
             adjustVolume: (delta) => this.volumeInteractions.adjust(delta),
             toggleMute: () => this.volumeInteractions.toggleMute(),
+            ...tvRemoteShortcuts(this, this.host, () => this.reveal()),
         });
         effect((onCleanup) => {
             const playerSurface = this.playerSurface();

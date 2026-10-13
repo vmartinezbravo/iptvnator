@@ -44,6 +44,7 @@ import {
     PORTAL_PLAYER,
     PortalChannelSortMode,
     getPortalChannelSortModeLabelKey,
+    channelKeyDirection,
     getAdjacentChannelItem,
     getChannelItemByNumber,
     isTypingInInput,
@@ -794,6 +795,13 @@ export class LiveStreamLayoutComponent
         ) {
             event.preventDefault();
             this.livePanels.toggleSidebar();
+            return;
+        }
+        // The remote's CH+/CH- zap like the desktop remote control does.
+        const direction = channelKeyDirection(event);
+        if (direction && !this.hostElement.nativeElement.closest('[inert]')) {
+            event.preventDefault();
+            this.handleRemoteChannelChange(direction);
         }
     }
 
