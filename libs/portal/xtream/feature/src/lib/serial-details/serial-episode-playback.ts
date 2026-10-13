@@ -43,6 +43,7 @@ export function buildSerialEpisodePlayback(
     const playback: ResolvedPortalPlayback = {
         streamUrl: request.streamUrl,
         title: episode.title,
+        seriesTitle: selectedItem.info.name,
         thumbnail: selectedItem.info.cover,
         startTime: request.startTime,
         contentInfo,

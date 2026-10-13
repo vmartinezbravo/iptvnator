@@ -23,6 +23,7 @@ public class NativePlayerPlugin extends Plugin {
 
     static final String EXTRA_URLS = "com.victor.iptvnator.urls";
     static final String EXTRA_TITLES = "com.victor.iptvnator.titles";
+    static final String EXTRA_SUBTITLES = "com.victor.iptvnator.subtitles";
     static final String EXTRA_INDEX = "com.victor.iptvnator.index";
     static final String EXTRA_IS_LIVE = "com.victor.iptvnator.isLive";
     static final String EXTRA_START_POSITION_MS = "com.victor.iptvnator.startPositionMs";
@@ -51,6 +52,7 @@ public class NativePlayerPlugin extends Plugin {
         }
         ArrayList<String> urls = new ArrayList<>();
         ArrayList<String> titles = new ArrayList<>();
+        ArrayList<String> subtitles = new ArrayList<>();
         for (int i = 0; i < items.length(); i++) {
             JSONObject item = items.optJSONObject(i);
             String url = item != null ? item.optString("url", "") : "";
@@ -60,6 +62,7 @@ public class NativePlayerPlugin extends Plugin {
             }
             urls.add(url);
             titles.add(item.optString("title", ""));
+            subtitles.add(item.optString("subtitle", ""));
         }
         JSObject data = call.getData();
         int index = data.optInt("index", 0);
@@ -71,6 +74,7 @@ public class NativePlayerPlugin extends Plugin {
         Intent intent = new Intent(getContext(), NativePlayerActivity.class);
         intent.putStringArrayListExtra(EXTRA_URLS, urls);
         intent.putStringArrayListExtra(EXTRA_TITLES, titles);
+        intent.putStringArrayListExtra(EXTRA_SUBTITLES, subtitles);
         intent.putExtra(EXTRA_INDEX, index);
         intent.putExtra(EXTRA_IS_LIVE, data.optBoolean("isLive", false));
         intent.putExtra(EXTRA_START_POSITION_MS, data.optLong("startPositionMs", 0));

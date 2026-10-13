@@ -13,6 +13,8 @@ export interface ResolvedPortalPlayback {
     /** Source-owner supplied, advertised TS alternative for Xtream live Auto only. */
     liveAutoTsUrl?: string;
     title: string;
+    /** Episodes: the series' name, for players that show it above the title. */
+    seriesTitle?: string;
     thumbnail?: string | null;
     isLive?: boolean;
     startTime?: number;

@@ -5,6 +5,8 @@ import { Observable } from 'rxjs';
 export interface NativePlayerItem {
     url: string;
     title?: string;
+    /** Shown above the title: an episode's series, season and number. */
+    subtitle?: string;
 }
 
 export interface NativePlayerRequest {

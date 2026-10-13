@@ -5,6 +5,7 @@ import {
     PlaybackPositionData,
     ResolvedPortalPlayback,
 } from '@iptvnator/shared/interfaces';
+import { TranslateService } from '@ngx-translate/core';
 import { Subject } from 'rxjs';
 import { NativePlaybackService } from './native-playback.service';
 import {
@@ -13,6 +14,20 @@ import {
     NativePlayerEvent,
 } from './native-player';
 import { SettingsStore } from './settings-store.service';
+
+const episode: ResolvedPortalPlayback = {
+    streamUrl: 'http://example.test/series/7.mkv',
+    title: 'The Signal',
+    seriesTitle: 'Sin Señal',
+    contentInfo: {
+        playlistId: 'playlist-1',
+        contentXtreamId: 7,
+        contentType: 'episode',
+        seriesXtreamId: 3,
+        seasonNumber: 1,
+        episodeNumber: 4,
+    },
+};
 
 const movie: ResolvedPortalPlayback = {
     streamUrl: 'http://example.test/movie/1.mkv',
@@ -60,6 +75,18 @@ describe('NativePlaybackService', () => {
                     },
                 },
                 {
+                    provide: TranslateService,
+                    useValue: {
+                        instant: (
+                            key: string,
+                            params: { season: number; episode: number }
+                        ) =>
+                            key === 'WORKSPACE.DASHBOARD.SEASON_EPISODE_BADGE'
+                                ? `T${params.season}·E${params.episode}`
+                                : key,
+                    },
+                },
+                {
                     provide: PlaybackPositionUpdateFeed,
                     useValue: {
                         publish: (data: PlaybackPositionData) =>
@@ -80,6 +107,26 @@ describe('NativePlaybackService', () => {
             startPositionMs: 95_000,
             audioMode: 'pcm',
         });
+    });
+
+    it('open shows the series, season and episode above an episode title', async () => {
+        await TestBed.inject(NativePlaybackService).open(episode);
+
+        expect(player.play.mock.calls[0][0].items).toEqual([
+            {
+                url: episode.streamUrl,
+                title: 'The Signal',
+                subtitle: 'Sin Señal · T1·E4',
+            },
+        ]);
+    });
+
+    it('open sends no subtitle for a movie', async () => {
+        await TestBed.inject(NativePlaybackService).open(movie);
+
+        expect(player.play.mock.calls[0][0].items[0]).not.toHaveProperty(
+            'subtitle'
+        );
     });
 
     it('open resolves an opened native session', async () => {

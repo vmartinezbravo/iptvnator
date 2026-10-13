@@ -8,7 +8,9 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.View;
 import android.webkit.WebSettings;
+import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.C;
@@ -55,6 +57,11 @@ public class NativePlayerActivity extends AppCompatActivity {
 
     private ArrayList<String> urls;
     private ArrayList<String> titles;
+    private ArrayList<String> subtitles;
+    private View titleBar;
+    private TextView titleView;
+    private TextView subtitleView;
+    private final Runnable hideTitle = () -> titleBar.setVisibility(View.GONE);
     private PlayerErrorOverlay errorOverlay;
     private ChannelCursor cursor;
     private boolean isLive;
@@ -90,6 +97,10 @@ public class NativePlayerActivity extends AppCompatActivity {
             return;
         }
         titles = intent.getStringArrayListExtra(NativePlayerPlugin.EXTRA_TITLES);
+        subtitles = intent.getStringArrayListExtra(NativePlayerPlugin.EXTRA_SUBTITLES);
+        titleBar = findViewById(R.id.player_title_bar);
+        titleView = findViewById(R.id.player_title);
+        subtitleView = findViewById(R.id.player_subtitle);
         errorOverlay = new PlayerErrorOverlay(findViewById(R.id.player_error));
         cursor = new ChannelCursor(urls.size(), intent.getIntExtra(NativePlayerPlugin.EXTRA_INDEX, 0));
         isLive = intent.getBooleanExtra(NativePlayerPlugin.EXTRA_IS_LIVE, false);
@@ -149,6 +160,13 @@ public class NativePlayerActivity extends AppCompatActivity {
         PlayerView view = findViewById(R.id.player_view);
         view.setPlayer(player);
         view.setUseController(!isLive);
+        if (!isLive) {
+            // The title comes and goes with the playback controls.
+            view.setControllerVisibilityListener(
+                (PlayerView.ControllerVisibilityListener) visibility ->
+                    titleBar.setVisibility(titleView.length() == 0 ? View.GONE : visibility)
+            );
+        }
         view.setKeepScreenOn(true);
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -259,6 +277,7 @@ public class NativePlayerActivity extends AppCompatActivity {
                 .setPreferredAudioLanguage(deviceLanguage)
                 .build()
         );
+        showTitle(index);
         String url = urls.get(index);
         resolver.execute(() -> {
             if (userAgent == null) {
@@ -267,6 +286,20 @@ public class NativePlayerActivity extends AppCompatActivity {
             String playable = StreamRedirects.resolve(url, userAgent, StreamRedirects.HTTP, MAX_REDIRECTS);
             mainThread.post(() -> start(current, playable, startPositionMs));
         });
+    }
+
+    /** Sets the lines of the item; a live channel shows them for a while. */
+    private void showTitle(int index) {
+        String title = PlayerTitle.at(titles, index);
+        String subtitle = PlayerTitle.at(subtitles, index);
+        titleView.setText(title);
+        subtitleView.setText(subtitle);
+        subtitleView.setVisibility(subtitle == null ? View.GONE : View.VISIBLE);
+        if (isLive && title != null) {
+            mainThread.removeCallbacks(hideTitle);
+            titleBar.setVisibility(View.VISIBLE);
+            mainThread.postDelayed(hideTitle, PlayerTitle.LIVE_BANNER_MS);
+        }
     }
 
     private void start(int current, String playable, long startPositionMs) {
@@ -363,6 +396,7 @@ public class NativePlayerActivity extends AppCompatActivity {
         super.onDestroy();
         resolver.shutdownNow();
         mainThread.removeCallbacks(reportProgress);
+        mainThread.removeCallbacks(hideTitle);
         if (player != null) {
             player.release();
             player = null;

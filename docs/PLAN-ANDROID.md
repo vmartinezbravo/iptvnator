@@ -1135,6 +1135,22 @@ sigue fuera de la fase.
 - «Ahora / después» durante la reproducción.
 - Controles de IPTVnator sobre el vídeo (hoy son los de Media3).
 
+### Ampliación de la 4c: título en el reproductor Media3 (hecha en la rama de la fase 5, 2026-10-13)
+
+Petición de Víctor: mientras se ven los controles, arriba debe aparecer lo que se está viendo, y desaparecer con ellos.
+
+- **Punto de partida:** el título ya llegaba a `NativePlayerActivity` (`NativePlayerItem.title`, extra `EXTRA_TITLES`), pero solo se usaba para «Abrir en VLC». En los episodios, la app mandaba solo el título del episodio.
+- **Interfaz `NativePlayer`:** `NativePlayerItem` gana `subtitle` (extra `EXTRA_SUBTITLES`). `ResolvedPortalPlayback` gana `seriesTitle`, que rellena `buildSerialEpisodePlayback` con el nombre de la serie. `NativePlaybackService` compone el subtítulo de un episodio como «serie · T1·E4» (reutiliza `WORKSPACE.DASHBOARD.SEASON_EPISODE_BADGE`). Las películas no llevan subtítulo, y el directo lleva el nombre del canal como título.
+- **Media3:** una barra arriba, con un degradado oscuro para que se lea sobre imágenes claras, con el subtítulo (18 sp) y el título (26 sp, negrita). En películas y episodios sigue la visibilidad del controlador (`ControllerVisibilityListener`).
+- **Ruling:** el directo no tiene controles en Media3 (`setUseController(!isLive)`), así que el nombre del canal aparece 5 s al empezar y en cada zapping, como en una tele.
+- **Tests que fallaron antes:**
+  - «open shows the series, season and episode above an episode title» (`native-playback.service.spec.ts`);
+  - «names the series, for players that show it above the episode title» (`serial-episode-playback.spec.ts`);
+  - `PlayerTitleTest` (JUnit; antes no compilaba porque la clase no existía).
+- **Comprobado en el Stick** con un HLS público de prueba (`test-streams.mux.dev`) y títulos de prueba, llamando al plugin directamente, sin datos de Víctor ni recientes:
+  - **episodio:** las dos líneas aparecen con los controles y desaparecen con ellos;
+  - **directo:** el nombre se ve al empezar, desaparece a los 5 s y vuelve con el canal nuevo tras el zapping.
+
 ---
 
 # Fase 5 — Mando y manifest

@@ -6,10 +6,12 @@ import {
     ExternalPlayerSession,
     ResolvedPortalPlayback,
 } from '@iptvnator/shared/interfaces';
+import { TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import {
     NATIVE_PLAYER,
     NativePlayerEvent,
+    NativePlayerItem,
     NativePlayerRequest,
 } from './native-player';
 import { toPlaybackPosition } from './native-playback-position';
@@ -28,6 +30,7 @@ export class NativePlaybackService {
     private readonly settings = inject(SettingsStore);
     private readonly positions = inject(PlaybackPositionUpdateFeed);
     private readonly history = inject(PlaybackHistoryGate);
+    private readonly translate = inject(TranslateService);
     private current: Subscription | null = null;
     /** Settles the pending live queue when a newer playback replaces it. */
     private settleQueue: (() => void) | null = null;
@@ -38,7 +41,7 @@ export class NativePlaybackService {
         playback: ResolvedPortalPlayback
     ): Promise<ExternalPlayerSession> {
         const current = await this.start({
-            items: [{ url: playback.streamUrl, title: playback.title }],
+            items: [this.itemOf(playback)],
             index: 0,
             isLive: !!playback.isLive,
             startPositionMs: (playback.startTime ?? 0) * 1000,
@@ -103,6 +106,32 @@ export class NativePlaybackService {
                 }
             );
         });
+    }
+
+    /** An episode also shows its series, season and number. */
+    private itemOf(playback: ResolvedPortalPlayback): NativePlayerItem {
+        const item: NativePlayerItem = {
+            url: playback.streamUrl,
+            title: playback.title,
+        };
+        const info = playback.contentInfo;
+        if (info?.contentType !== 'episode') {
+            return item;
+        }
+        const number =
+            info.seasonNumber && info.episodeNumber
+                ? this.translate.instant(
+                      'WORKSPACE.DASHBOARD.SEASON_EPISODE_BADGE',
+                      {
+                          season: info.seasonNumber,
+                          episode: info.episodeNumber,
+                      }
+                  )
+                : '';
+        const subtitle = [playback.seriesTitle, number]
+            .filter(Boolean)
+            .join(' · ');
+        return subtitle ? { ...item, subtitle } : item;
     }
 
     /**
