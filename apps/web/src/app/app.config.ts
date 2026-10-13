@@ -16,6 +16,7 @@ import {
     provideAppInitializer,
 } from '@angular/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
+import { MatDialog } from '@angular/material/dialog';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import {
     provideRouter,
@@ -54,6 +55,7 @@ import { providePortalPlaybackPositions } from './services/portal-playback-posit
 import { shouldEnableServiceWorker } from './services/runtime-config';
 import { startNativeStyleTuning } from './services/native-style-tuning';
 import { startSectionSwitchBar } from './services/section-switch-bar';
+import { startTvOptionsKeys } from './services/tv-options/tv-options-keys';
 import { loadSpatialNavigation } from './services/spatial-navigation.loader';
 import { startToggleGroupDpad } from './services/toggle-group-dpad';
 import { containOverlayDpad } from './services/overlay-dpad-containment';
@@ -117,6 +119,7 @@ export const appConfig: ApplicationConfig = {
         provideAppInitializer(() => {
             const runtime = inject(RuntimeCapabilitiesService);
             const overlays = inject(OverlayContainer);
+            const injector = inject(Injector);
             startNativeStyleTuning(runtime);
             if (runtime.isNativeShell) {
                 const router = inject(Router);
@@ -124,10 +127,17 @@ export const appConfig: ApplicationConfig = {
                     navigate: (url) => router.navigateByUrl(url),
                     events: router.events,
                 });
+                // The options menu loads on its first use.
+                startTvOptionsKeys((actions) => {
+                    void import(
+                        './services/tv-options/tv-options-dialog.component'
+                    ).then(({ openTvOptions }) =>
+                        openTvOptions(injector.get(MatDialog), actions)
+                    );
+                });
             }
             // The Back handler and its dialogs stay out of the initial
             // bundle: they load on the first Back press.
-            const injector = inject(Injector);
             void registerTvBackKey(runtime, async () => {
                 const { TvBackNavigationService } =
                     await import('./services/tv-back-navigation.service');

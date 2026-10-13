@@ -2,6 +2,7 @@ package com.victor.iptvnator;
 
 import android.content.pm.PackageInfo;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import androidx.appcompat.app.AlertDialog;
 import androidx.webkit.WebViewCompat;
 import com.getcapacitor.BridgeActivity;
@@ -14,6 +15,21 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NativePlayerPlugin.class);
         super.onCreate(savedInstanceState);
         warnIfWebViewTooOld();
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        switch (MenuKey.handle(event.getKeyCode(), event.getAction(), event.getRepeatCount())) {
+            case MenuKey.FORWARD:
+                if (getBridge() != null) {
+                    getBridge().getWebView().evaluateJavascript(MenuKey.SCRIPT, null);
+                }
+                return true;
+            case MenuKey.CONSUME:
+                return true;
+            default:
+                return super.dispatchKeyEvent(event);
+        }
     }
 
     /**
