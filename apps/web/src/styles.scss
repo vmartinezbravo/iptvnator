@@ -326,6 +326,12 @@ body.dark-theme {
     visibility: hidden !important;
 }
 
+// Header controls a remote has no use for: keyboard shortcuts, the header
+// Back (the remote has its own) and the channel list toggle.
+.native-shell [data-tv-hidden] {
+    display: none !important;
+}
+
 // Fire TV / Android TV (Task 5.5, D): the bar shown while a side-menu
 // section opens (startSectionSwitchBar). Opacity and transform animations
 // run on the compositor, so it keeps moving while the page is blocked; it

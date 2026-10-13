@@ -11,6 +11,11 @@ import { WorkspaceShellRailLinksComponent } from '../workspace-shell-rail-links/
 
 @Component({
     selector: 'app-workspace-shell-rail',
+    // On the TV, the Menu key over the side menu opens the command palette.
+    host: {
+        'data-tv-item': '',
+        'data-tv-actions': 'workspace-command-palette',
+    },
     imports: [
         MatIcon,
         MatTooltip,

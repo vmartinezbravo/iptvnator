@@ -84,6 +84,16 @@ describe('WorkspaceShellRailComponent', () => {
         ).not.toBeNull();
     });
 
+    it('offers the command palette as its TV option', () => {
+        fixture.detectChanges();
+
+        const host = fixture.nativeElement as HTMLElement;
+        expect(host.hasAttribute('data-tv-item')).toBe(true);
+        expect(host.getAttribute('data-tv-actions')).toBe(
+            'workspace-command-palette'
+        );
+    });
+
     it('has no brand mark duplicating the first workspace link', () => {
         fixture.detectChanges();
 

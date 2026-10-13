@@ -8,6 +8,7 @@
         <button
             type="button"
             class="header-back"
+            data-tv-hidden
             [class.header-back--yields]="backYieldsToDrawerToggle()"
             mat-icon-button
             data-test-id="workspace-header-back"
@@ -97,6 +98,7 @@
             <button
                 type="button"
                 class="command-trigger"
+                data-tv-action="workspace-command-palette"
                 (click)="onCommandPaletteRequested()"
                 [matTooltip]="
                     'WORKSPACE.SHELL.COMMAND_PALETTE_SHORTCUT' | translate
@@ -126,6 +128,7 @@
         <button
             type="button"
             class="shortcuts-trigger"
+            data-tv-hidden
             mat-icon-button
             (click)="onShortcutsRequested()"
             [matTooltip]="'WORKSPACE.SHORTCUTS.OPEN_TOOLTIP' | translate"
@@ -174,6 +177,7 @@
                 <button
                     type="button"
                     class="header-shortcut header-sidebar-toggle"
+                    data-tv-hidden
                     [class.header-sidebar-toggle--collapsed]="
                         !sidebarToggle.expanded
                     "

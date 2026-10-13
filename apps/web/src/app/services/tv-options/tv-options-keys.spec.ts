@@ -71,6 +71,22 @@ describe('TV options keys', () => {
         expect(pressed).toHaveBeenCalledTimes(1);
     });
 
+    it('offers the actions an item names from elsewhere in the page', () => {
+        document.body.innerHTML = `
+            <nav data-tv-item data-tv-actions="workspace-command-palette">
+                <a id="rail-link" href="/movies">Movies</a>
+            </nav>
+            <header>
+                <button data-tv-action="workspace-command-palette" aria-label="Open command palette">⚡</button>
+            </header>`;
+
+        expect(
+            findTvActions(document.getElementById('rail-link')).map(
+                (action) => action.label
+            )
+        ).toEqual(['Open command palette']);
+    });
+
     it('runs an action by pressing its hidden button', () => {
         const more = document.querySelector(
             '[aria-label="More actions"]'

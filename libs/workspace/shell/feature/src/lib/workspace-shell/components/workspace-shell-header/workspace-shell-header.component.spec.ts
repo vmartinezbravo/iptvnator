@@ -90,6 +90,32 @@ describe('WorkspaceShellHeaderComponent', () => {
         fixture.detectChanges();
     });
 
+    it('marks the keyboard help, Back and rail toggle for the TV to hide, and hands it the palette', () => {
+        fixture.componentRef.setInput('backTarget', {
+            label: () => 'Back',
+            escapeShortcut: () => false,
+        } as never);
+        fixture.componentRef.setInput('headerSidebarToggle', {
+            expanded: true,
+            tooltip: 'LAYOUT.TOGGLE_SIDEBAR_TOOLTIP',
+            ariaLabel: 'LAYOUT.HIDE_CHANNELS_LIST',
+        });
+        fixture.detectChanges();
+
+        const host = fixture.nativeElement as HTMLElement;
+        const hidden = Array.from(host.querySelectorAll('[data-tv-hidden]'));
+        expect(
+            hidden.map((element) =>
+                ['header-back', 'shortcuts-trigger', 'header-sidebar-toggle'].find(
+                    (name) => element.classList.contains(name)
+                )
+            )
+        ).toEqual(['header-back', 'shortcuts-trigger', 'header-sidebar-toggle']);
+        expect(
+            host.querySelector('.command-trigger')?.getAttribute('data-tv-action')
+        ).toBe('workspace-command-palette');
+    });
+
     it('emits search input changes as user types', () => {
         const emitted: string[] = [];
         component.searchChanged.subscribe((value) => emitted.push(value));
