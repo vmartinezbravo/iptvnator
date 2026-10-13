@@ -1486,6 +1486,13 @@ y M3U no lo tienen.
        - Los canales en directo no tienen controles de Media3 (solo zapping), así que no hay foco que mostrar.
        - Test que falló antes: `PlayerFocusStyleTest`, sobre los recursos.
        - Comprobado en el Stick con el HLS de prueba, abierto desde el plugin (sin recientes): ajustes, pausa, +15 s y barra de progreso. −5 s usa el mismo estilo que +15 s y no se fotografió tras el arreglo.
+  - **Decisiones de Víctor tras esa prueba** [2026-10-13]:
+    1. **Rejillas de películas y de series (`app-grid-list`):** no llevan opciones; solo abren la ficha. **Decisión:** no se añade nada.
+    2. **Favoritos y recientes de películas y series** (`1d2eb8c00`): «Quitar de favoritos / recientes» es ahora la opción de la tarjeta (`data-tv-item` en la tarjeta, `data-tv-action` en el botón). Con `native-shell` el botón se oculta y el D-pad ya no se para en él; se llega con Menú u OK largo. Escritorio y web igual. Test que falló antes: `ContentCardComponent › hands the Remove control to the TV options menu`.
+    3. **Canales en favoritos y recientes** (`62fa6db45`): el menú de la TV ofrece solo «quitar» y «detalles». «Asignar EPG» no está en el menú de la TV. En la vista M3U de favoritos la estrella ya era «quitar» y se añade «detalles»; en la de recientes se marca el botón de borrar y se añade «detalles»; en las listas globales se añade «detalles» (solo si hay datos completos del canal M3U) y, en recientes, «quitar». Los botones nuevos van ocultos (`hidden`) y no se dibujan en ninguna plataforma. Tests que fallaron antes: `ChannelListItemComponent`, `RecentViewComponent`, `FavoritesViewComponent` y `GlobalFavoritesListComponent`.
+    4. **Pendiente (fuera de esta tarea):** el menú de las categorías (bloqueo parental, clic derecho) sigue sin llegar al mando.
+    5. **Icono:** tras reiniciar el Stick seguía el icono viejo. `versionCode` 1 → 2 y `versionName` 1.0 → 1.0.1; reinstalada con `adb install -r`, sin desinstalar (`dumpsys package` da `versionCode=2`).
+    6. **Foco del reproductor** (−5 s, anterior, pausa, +15 s y barra): probado por Víctor con el mando, está bien.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
