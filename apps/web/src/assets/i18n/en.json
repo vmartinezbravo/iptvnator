@@ -5,6 +5,11 @@
     "CLOSE": "Close",
     "REMOVE": "Remove",
     "BACK": "Back",
+    "TV_EXIT": {
+        "TITLE": "Exit IPTVnator?",
+        "MESSAGE": "The app closes. Your sources and settings stay saved.",
+        "CONFIRM": "Exit"
+    },
     "SHOW_MORE": "More",
     "SHOW_LESS": "Less",
     "PLAYLISTS": "Playlists",

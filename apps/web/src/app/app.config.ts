@@ -12,6 +12,7 @@ import {
     ApplicationConfig,
     importProvidersFrom,
     inject,
+    Injector,
     provideAppInitializer,
 } from '@angular/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
@@ -51,6 +52,7 @@ import { startNativeStyleTuning } from './services/native-style-tuning';
 import { loadSpatialNavigation } from './services/spatial-navigation.loader';
 import { startToggleGroupDpad } from './services/toggle-group-dpad';
 import { containOverlayDpad } from './services/overlay-dpad-containment';
+import { registerTvBackKey } from './services/tv-back-key';
 import { LazyStalkerPlaylistConnectionEditor } from './services/lazy-stalker-playlist-connection-editor';
 import { provideWorkspaceShellActions } from './services/workspace-shell-actions.service';
 
@@ -111,6 +113,14 @@ export const appConfig: ApplicationConfig = {
             const runtime = inject(RuntimeCapabilitiesService);
             const overlays = inject(OverlayContainer);
             startNativeStyleTuning(runtime);
+            // The Back handler and its dialogs stay out of the initial
+            // bundle: they load on the first Back press.
+            const injector = inject(Injector);
+            void registerTvBackKey(runtime, async () => {
+                const { TvBackNavigationService } =
+                    await import('./services/tv-back-navigation.service');
+                return injector.get(TvBackNavigationService).handleBack();
+            });
             // Not awaited: the first render does not wait for the D-pad.
             void loadSpatialNavigation(runtime).then((active) => {
                 if (!active) return;

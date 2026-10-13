@@ -1266,6 +1266,24 @@ CDK. Detalle en `docs/android-measurements.md`.
 - [ ] **Step 2: Implementar.** Lee cómo exponer el back registrado en `libs/workspace/shell/feature` (`registerWorkspaceBack`). Los tests pasan con `pnpm nx test web`.
 - [ ] **Step 3: Commit** `feat(tv): back key closes dialogs, exits fullscreen, navigates, confirms exit`.
 
+**Resultado** [2026-10-13]: `TvBackNavigationService` (cargado en diferido en
+la primera pulsación, fuera del bundle inicial) y `registerTvBackKey`
+(`tv-back-key.ts`). Ajustes sobre el plan:
+- El caso 2 cierra el overlay pulsando su _backdrop_ en lugar de enviar
+  `Escape`: así solo cuenta un menú o un desplegable; los _tooltips_ (que
+  salen al enfocar) no tienen _backdrop_ y no se comen la pulsación.
+- Los casos 4 y 5 los resuelve `WorkspaceBackNavigationService.goBack()`, que ya
+  incluye el historial dentro de la app. Si no queda historial y la ruta no es
+  la de inicio (panel, o fuentes si el panel está oculto), Atrás va a la de
+  inicio, porque `history.back()` no haría nada.
+- La confirmación usa «Salir» / «Cancelar» (el diálogo de la app pide un verbo,
+  nunca «Sí»).
+- Mientras el reproductor Media3 está delante, Atrás lo gestiona su actividad
+  (cierra y devuelve la posición); el WebView no recibe la tecla.
+Comprobado en el Stick: diálogo encima de otro (cierra solo el de arriba),
+ficha de serie → lista → panel, y en el panel la pregunta de salida, que otro
+Atrás cierra sin salir.
+
 ### Task 5.4: Teclas multimedia y controles del reproductor con el D-pad
 
 **Files:**
