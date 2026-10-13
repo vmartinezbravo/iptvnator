@@ -9,6 +9,7 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
@@ -166,6 +167,8 @@ public class NativePlayerActivity extends AppCompatActivity {
         view.setPlayer(player);
         view.setUseController(!isLive);
         if (!isLive) {
+            // The focused control grows past its row: let it draw outside.
+            unclip(view.findViewById(androidx.media3.ui.R.id.exo_controller));
             // The title comes and goes with the playback controls.
             view.setControllerVisibilityListener(
                 (PlayerView.ControllerVisibilityListener) visibility ->
@@ -187,6 +190,16 @@ public class NativePlayerActivity extends AppCompatActivity {
 
         clockStart = intent.getLongExtra(NativePlayerPlugin.EXTRA_REQUESTED_AT, SystemClock.elapsedRealtime());
         play(cursor.index(), intent.getLongExtra(NativePlayerPlugin.EXTRA_START_POSITION_MS, 0));
+    }
+
+    private static void unclip(View view) {
+        if (!(view instanceof ViewGroup)) return;
+        ViewGroup group = (ViewGroup) view;
+        group.setClipChildren(false);
+        group.setClipToPadding(false);
+        for (int i = 0; i < group.getChildCount(); i++) {
+            unclip(group.getChildAt(i));
+        }
     }
 
     /**

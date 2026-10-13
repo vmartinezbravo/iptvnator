@@ -22,6 +22,60 @@
         <item name="android:windowIsTranslucent">true</item>
     </style>
 
+    <!-- Media3 styles overridden for a focus that reads from the sofa. An
+         override replaces the library style, so Media3's own items (1.11.1)
+         are copied in; the controls' styles inherit from these by name. The
+         bottom buttons' focus highlight is round like the ring (Media3 draws
+         a square one). -->
+    <style name="ExoStyledControls.Button">
+        <item name="android:background">?android:attr/selectableItemBackgroundBorderless</item>
+        <item name="android:scaleType">fitXY</item>
+        <item name="android:layout_marginLeft">@dimen/exo_icon_horizontal_margin</item>
+        <item name="android:layout_marginRight">@dimen/exo_icon_horizontal_margin</item>
+        <item name="android:foreground">@drawable/player_focus_ring</item>
+        <item name="android:stateListAnimator">@animator/player_focus_scale</item>
+    </style>
+
+    <!-- The seek buttons draw their icon as the background and set their own
+         foreground: they take the ring in its place. -->
+    <style name="ExoStyledControls.Button.Center.RewWithAmount">
+        <item name="android:background">@drawable/exo_styled_controls_rewind</item>
+        <item name="android:foreground">@drawable/player_focus_ring</item>
+        <item name="android:gravity">center|bottom</item>
+        <item name="android:paddingRight">0dp</item>
+        <item name="android:paddingLeft">0dp</item>
+        <item name="android:paddingBottom">@dimen/exo_icon_padding_bottom</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/exo_icon_text_size</item>
+        <item name="android:textColor">@color/exo_white</item>
+        <item name="backgroundTint">@color/exo_white</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="ExoStyledControls.Button.Center.FfwdWithAmount">
+        <item name="android:background">@drawable/exo_styled_controls_fastforward</item>
+        <item name="android:foreground">@drawable/player_focus_ring</item>
+        <item name="android:gravity">center|bottom</item>
+        <item name="android:paddingRight">0dp</item>
+        <item name="android:paddingLeft">0dp</item>
+        <item name="android:paddingBottom">@dimen/exo_icon_padding_bottom</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/exo_icon_text_size</item>
+        <item name="android:textColor">@color/exo_white</item>
+        <item name="backgroundTint">@color/exo_white</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="ExoStyledControls.TimeBar">
+        <item name="bar_height">@dimen/exo_styled_progress_bar_height</item>
+        <item name="bar_gravity">bottom</item>
+        <item name="touch_target_height">@dimen/exo_styled_progress_touch_target_height</item>
+        <item name="scrubber_enabled_size">@dimen/exo_styled_progress_enabled_thumb_size</item>
+        <item name="scrubber_dragged_size">@dimen/exo_styled_progress_dragged_thumb_size</item>
+        <item name="android:layout_height">@dimen/exo_styled_progress_layout_height</item>
+        <item name="scrubber_drawable">@drawable/player_scrubber</item>
+    </style>
+
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
     </style>
