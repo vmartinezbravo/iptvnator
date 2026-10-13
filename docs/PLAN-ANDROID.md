@@ -1424,7 +1424,14 @@ y M3U no lo tienen.
       - en la ficha de serie, abajo pasa de un episodio al siguiente sin parar en «Mark as Watched» ni en los 3 puntos;
       - en las filas de canales, derecha ya no se detiene en la estrella.
       - No se resuelven: izquierda desde una rejilla vuelve a la categoría que está a su altura, y en la ficha de serie, arriba desde la descripción y abajo tras el último elemento siguen saltando a las categorías. Dependen del mapa de foco, aparcado.
-    - **Coste estimado:** M. Hay que reenviar Menú en `MainActivity`, crear un servicio de menú contextual que lea las acciones del elemento enfocado (cada tarjeta, fila o episodio declara las suyas) y añadir las clases del runtime en 5 o 6 plantillas, con tests que fallen primero en cada una.
+    - **Coste estimado (propuesta C):** M. Hay que reenviar Menú en `MainActivity`, crear un servicio de menú contextual que lea las acciones del elemento enfocado (cada tarjeta, fila o episodio declara las suyas) y añadir las clases del runtime en 5 o 6 plantillas, con tests que fallen primero en cada una.
+  - **Tarea E: icono del launcher** [2026-10-13], comprobado con adb (`cmd package query-activities … LEANBACK_LAUNCHER`) y sin desinstalar nada.
+    - El launcher de TV lista 15 apps, entre ellas `com.victor.iptvnator/.MainActivity`.
+    - La app del icono de conector es IPTVnator: usa el icono por defecto de Capacitor (`res/mipmap-*/ic_launcher*.png`, el adaptativo de `mipmap-anydpi-v26` y su fondo `ic_launcher_background`), que no se cambió al crear el proyecto. Fire OS muestra ese icono en «Tus apps»; el banner nuevo de la 5.1 solo aparece en las filas de TV.
+    - **Propuesta (pendiente de su OK):** un script `tools/android/make-launcher-icons.mjs`, gemelo de `make-banner.mjs`, que genere desde `apps/web/src/assets/icons/icon-1024.png` las 15 imágenes de `mipmap-mdpi` a `mipmap-xxxhdpi` (`ic_launcher`, `ic_launcher_round` y `ic_launcher_foreground` con su margen de icono adaptativo) y que ponga el fondo adaptativo al azul oscuro del banner (#0d2233).
+      - Se instala con `adb install -r` sobre la app actual, sin desinstalar ni tocar los datos.
+      - Si el launcher guarda en caché el icono viejo, basta con reiniciar el Stick.
+      - Coste: S.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
@@ -1519,6 +1526,10 @@ en la checklist de la Task 7.2, paso 1:
   ajustes**, instalar la firmada y comprobar que la app y su banner aparecen en
   el launcher. Mientras tanto se abre desde Configuración → Aplicaciones →
   Administrar aplicaciones instaladas → IPTVnator → Iniciar aplicación.
+  - **Aclarado en la tarea E de la 5.5** [2026-10-13]: la app sí está en el
+    launcher. Es la del «icono de conector», que es el icono por defecto de
+    Capacitor (`res/mipmap-*/ic_launcher*.png`, sin cambiar desde que se creó
+    el proyecto en `bac27353d`).
 
 ### Task 7.1: Keystore y firma
 
