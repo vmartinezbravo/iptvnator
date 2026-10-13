@@ -69,6 +69,57 @@ describe('vendored spatial navigation polyfill', () => {
         expect(elementFromPoint).not.toHaveBeenCalled();
     });
 
+    describe('in a scroll container that clips its content', () => {
+        // Live TV on the Stick: a 960×540 page whose category list scrolls
+        // between y=117 and y=530; category 12 starts at y=539, inside the
+        // page but below the list's bottom edge.
+        let categories: HTMLButtonElement[];
+
+        beforeEach(() => {
+            document.body.innerHTML =
+                '<div id="list" style="overflow-y: auto">' +
+                Array.from(
+                    { length: 14 },
+                    (_, i) => `<button id="cat${i}">${i}</button>`
+                ).join('') +
+                '</div>';
+            categories = Array.from(
+                document.querySelectorAll('#list button')
+            ) as HTMLButtonElement[];
+            rects = new Map<Element, DOMRect>([
+                [document.getElementById('list') as Element, rect(117, 413)],
+                ...categories.map(
+                    (el, i) => [el, rect(117 + i * 35.2, 35)] as const
+                ),
+            ]);
+            for (const [name, value] of [
+                ['clientHeight', 540],
+                ['clientWidth', 960],
+            ] as const) {
+                Object.defineProperty(document.documentElement, name, {
+                    configurable: true,
+                    value,
+                });
+            }
+        });
+
+        it('does not move the focus to a category hidden below the list edge', () => {
+            categories[11].focus();
+
+            navigate('down');
+
+            expect(document.activeElement).not.toBe(categories[12]);
+        });
+
+        it('still moves to a category the list edge cuts in part', () => {
+            categories[10].focus();
+
+            navigate('down');
+
+            expect(document.activeElement).toBe(categories[11]);
+        });
+    });
+
     it('keeps going from where a focused element was when it is hidden in place', () => {
         button('b').focus();
         rects.set(button('b'), rect(50, 0));

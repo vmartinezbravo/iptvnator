@@ -30,8 +30,10 @@
  * called document.elementFromPoint() at up to three points of every
  * candidate to see whether something covers it. On the Fire TV Stick that
  * cost ~60 ms per D-pad key (354 ms over 6 keys in the side menu). The copy
- * returns true once the candidate is inside the viewport, so a candidate
- * hidden under another element counts as visible. Dialogs trap the focus
+ * instead checks that the candidate overlaps every ancestor that clips its
+ * overflow (each ancestor's overflow style is read once per key press), so
+ * a candidate scrolled out of its list is not visible, but one hidden under
+ * another element still counts as visible. Dialogs trap the focus
  * themselves (CDK focus trap), so the D-pad does not reach what they cover.
  */
 
@@ -1148,9 +1150,44 @@
       elementRect.top > element.ownerDocument.documentElement.clientHeight || elementRect.left >element.ownerDocument.documentElement.clientWidth))
       return false;
 
-    // IPTVnator: the elementFromPoint hit test (middle, left-top and
-    // right-bottom points) is removed; inside the viewport counts as visible.
+    // IPTVnator: instead of the elementFromPoint hit test (middle, left-top
+    // and right-bottom points), the candidate must overlap every ancestor
+    // that clips its overflow.
+    for (let ancestor = element.parentElement; ancestor && ancestor !== document.body; ancestor = ancestor.parentElement) {
+      const clip = getOverflowClip(ancestor);
+      if (!clip.x && !clip.y) continue;
+      const clipRect = getBoundingClientRect(ancestor);
+      if ((clip.y && (elementRect.top >= clipRect.bottom || elementRect.bottom <= clipRect.top)) ||
+          (clip.x && (elementRect.left >= clipRect.right || elementRect.right <= clipRect.left)))
+        return false;
+    }
     return true;
+  }
+
+  // IPTVnator: which axes an element clips, read once per key press (the
+  // cache lives as long as mapOfBoundRect).
+  let overflowClips = null;
+  let overflowClipsFor = null;
+  function getOverflowClip(element) {
+    if (!mapOfBoundRect) return readOverflowClip(element);
+    if (overflowClipsFor !== mapOfBoundRect) {
+      overflowClips = new Map();
+      overflowClipsFor = mapOfBoundRect;
+    }
+    let clip = overflowClips.get(element);
+    if (!clip) {
+      clip = readOverflowClip(element);
+      overflowClips.set(element, clip);
+    }
+    return clip;
+  }
+
+  function readOverflowClip(element) {
+    const style = window.getComputedStyle(element);
+    return {
+      x: style.getPropertyValue('overflow-x') !== 'visible',
+      y: style.getPropertyValue('overflow-y') !== 'visible'
+    };
   }
 
   /**
