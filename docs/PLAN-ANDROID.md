@@ -1472,6 +1472,20 @@ y M3U no lo tienen.
       - Si el launcher guarda en caché el icono viejo, basta con reiniciar el Stick.
       - Coste: S.
     - **Hecho** [OK de Víctor, 2026-10-13]: `tools/android/make-launcher-icons.mjs` genera los iconos. El primer plano adaptativo va al 80 %: con un 96 % el televisor tocaba los bordes de la máscara. Se instaló con `adb install -r`, sin desinstalar; `aapt dump badging` da `icon='res/mipmap-anydpi-v26/ic_launcher.xml'`. Si «Tus apps» muestra aún el icono viejo, reiniciar el Stick.
+  - **Prueba de Víctor de C, D y E** [2026-10-13]: el menú contextual va bien en canales; el título, el indicador de carga y la cabecera, también. Tres fallos:
+    1. **Rejilla de películas sin menú contextual.** Diagnóstico: las tarjetas de `app-grid-list` (rejillas de categoría de películas, series y canales en rejilla) no tienen ningún botón de opciones, ni en escritorio: solo abren el elemento. No falta una marca; no hay acciones que llevar al menú. Arreglarlo es añadir acciones nuevas (por ejemplo favoritos o «Mark as Watched» en la tarjeta), así que **queda pendiente de que Víctor elija cuáles**. Revisadas otras listas, sin cambiarlas:
+       - **episodios:** conectados (paso C2);
+       - **series:** la misma rejilla, sin opciones;
+       - **favoritos y recientes de películas y series** (`app-content-card` en `unified-grid-tab`): tienen botón «Quitar de favoritos / recientes» sin marcar, así que el D-pad se para en él y el menú no lo ofrece;
+       - **canales en favoritos, recientes y la lista global de favoritos:** la estrella está en el menú, pero el menú del clic derecho (asignar EPG, detalles, quitar) no;
+       - **categorías** (lista de grupos M3U y panel de categorías): el menú del clic derecho (bloqueo parental) tampoco llega.
+    2. **Icono del launcher.** La APK instalada es idéntica byte a byte a la del build (`md5`) y lleva los iconos y el banner de IPTVnator (`aapt dump badging`, imágenes extraídas de la APK del Stick). Es la caché del launcher (`com.amazon.tv.launcher`): el Stick lleva 23 h encendido, desde antes de instalar los iconos, y la app sigue en `versionCode 1`. Para forzarla sin borrar datos: reiniciar el Stick; si no basta, subir `versionCode` para que el launcher vea una versión nueva.
+    3. **Foco del reproductor Media3** (`13dc31905`): anillo doble (exterior oscuro, interior claro) en todos los botones de los controles, con el botón un 15 % más grande, y el control deslizante de la barra de progreso crece con el mismo anillo. Se sobrescriben los estilos de Media3 copiando sus valores de la 1.11.1, incluidos los de −5 s / +15 s, que traían su propio primer plano.
+       - **Ruling:** el fondo de foco de los botones de abajo pasa a redondo, porque el cuadrado de Media3 chocaba con el anillo.
+       - **Ruling:** el anillo va 3 dp hacia dentro, para que el botón del borde de la pantalla no lo corte al crecer.
+       - Los canales en directo no tienen controles de Media3 (solo zapping), así que no hay foco que mostrar.
+       - Test que falló antes: `PlayerFocusStyleTest`, sobre los recursos.
+       - Comprobado en el Stick con el HLS de prueba, abierto desde el plugin (sin recientes): ajustes, pausa, +15 s y barra de progreso. −5 s usa el mismo estilo que +15 s y no se fotografió tras el arreglo.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
