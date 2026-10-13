@@ -1284,6 +1284,7 @@ que falta pasa a la fase 6, palanca E. Detalle en `docs/android-measurements.md`
   - anillo de foco recortado o invisible.
 
   Sin rediseñar. Cada ajuste va bajo una media query o una clase del runtime nativo, para no cambiar el escritorio.
+  - **Pendiente de la Task 5.2** [Víctor, 2026-10-13]: en la rejilla de episodios de una temporada, la flecha abajo pasa por el botón «Mark as Watched» de cada episodio (queda abajo a la derecha del episodio) antes de llegar a la fila siguiente.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
