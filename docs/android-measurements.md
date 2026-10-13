@@ -1059,3 +1059,33 @@ detalles llegan en un segundo frame de ~150 ms. Pero el trabajo total sube
 - La lista de categorías fuerza el layout tras cada selección (para centrar la
   categoría elegida, en un _microtask_); hoy no cuesta más que el layout del
   frame, pero obliga a hacerlo dentro de la tarea larga.
+
+## Navegación espacial con el D-pad (fase 5, Task 5.2) — 2026-10-13
+
+Mismo método que la Task 5.1a: Fire TV Stick, sin inspector,
+`node tools/android/ui-fluidity.mjs 3 --restart`, mediana de 3 rondas.
+
+| Escenario | Métrica | Tras la 5.1a | Polyfill 1.3.1 (npm) | Copia del repo (final) | Objetivo |
+|---|---|--:|--:|--:|--:|
+| Menú lateral con el D-pad | respuesta a la tecla (mediana / p90) | 52 / 81 ms | 120 / 212 ms | **70 / 97 ms** | ≤ 100 / 120 ✅ |
+| | fps | 58,4 | 54,9 | 57,4 | ≥ 55 ✅ |
+| | tareas largas de más de 100 ms | 0 | 5 | 0 | 0 ✅ |
+| Cambio de categoría | frame más largo por cambio | 178 ms | 172 ms | 189 ms | (fase 6) |
+| Cambio de sección | frame más largo por cambio | — | 618 ms | 562 ms | (fase 6) |
+| Scroll de la lista de canales | fps | 33,2 | 36,1 | 36,5 | no empeora ✅ |
+
+- **Causa del empeoramiento con el polyfill de npm:** para cada candidato
+  comprobaba con `document.elementFromPoint` (hasta tres puntos) si algo lo
+  tapaba. Perfil de 6 pulsaciones en el menú: 354 ms en `elementFromPoint`,
+  140 ms en `getBoundingClientRect` y 68 ms en `getPropertyValue`.
+- **Cambio:** copia del polyfill en `apps/web/src/app/vendor/spatial-navigation-polyfill/`
+  (licencia MIT incluida) sin esa comprobación: dentro de la vista cuenta como
+  visible. El chunk diferido pasa de 17,3 a 17,0 KB.
+- **Consecuencia y arreglo:** el D-pad podía salir de un diálogo hacia la página
+  de detrás. El contenedor de overlays de CDK se declara contenedor de
+  navegación (`--spatial-navigation-contain: contain` en línea, que es lo único
+  que lee el polyfill) y se cancela su evento `navnotarget`; comprobado en el
+  Stick con el diálogo «Add playlist».
+- No hizo falta que el menú lateral gestionara arriba/abajo por su cuenta.
+- El WebView de Fire TV ya trae navegación espacial nativa: era la que movía
+  el foco en las mediciones de la 5.1a.

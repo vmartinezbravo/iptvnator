@@ -1233,6 +1233,14 @@ que falta pasa a la fase 6, palanca E. Detalle en `docs/android-measurements.md`
   - Si el polyfill no funciona en alguno de los tres recorridos, **para**: describe el fallo y propone una directiva propia como alternativa a Víctor.
 - [ ] **Step 4: Commit** `feat(tv): spatial D-pad navigation on native shell`.
 
+**Resultado** [Víctor, 2026-10-13]: los tres recorridos funcionan tras tres
+arreglos locales solo en el runtime nativo (lista de canales fila a fila,
+`--spatial-navigation-action: focus` en la rejilla y en la ficha, selectores
+Grid/List sin atrapar el foco). El polyfill de npm subía la tecla del menú a
+120/212 ms; se usa una copia en `apps/web/src/app/vendor/` sin la comprobación
+con `elementFromPoint` (70/97 ms) y el foco queda dentro de los overlays de
+CDK. Detalle en `docs/android-measurements.md`.
+
 ### Task 5.3: Tecla Atrás
 
 **Files:**
