@@ -313,6 +313,46 @@ describe('GlobalFavoritesListComponent', () => {
         fixture.componentInstance.openContextMenuChannelInPlaylist();
         expect(requested).not.toHaveBeenCalled();
     });
+
+    it('offers details of an M3U row, and removal in recent mode, to the TV options menu', () => {
+        const channel = buildM3uChannel('a', 'Alpha');
+        const removed = jest.fn();
+        fixture.componentInstance.removeRequested.subscribe(removed);
+        fixture.componentRef.setInput('mode', 'recent');
+        fixture.componentRef.setInput('channels', [
+            buildChannel('a', 'Alpha', { m3uChannel: channel }),
+        ]);
+        fixture.detectChanges();
+
+        const marks = Array.from(
+            fixture.nativeElement.querySelectorAll('[data-tv-action]')
+        ) as HTMLButtonElement[];
+        expect(
+            marks.map((mark) => mark.getAttribute('data-tv-action'))
+        ).toEqual(['', 'details', 'remove']);
+
+        marks[1].click();
+        expect(dialog.open).toHaveBeenCalledWith(
+            ChannelDetailsDialogComponent,
+            expect.objectContaining({ data: channel })
+        );
+        marks[2].click();
+        expect(removed).toHaveBeenCalledWith(
+            expect.objectContaining({ uid: expect.any(String) })
+        );
+    });
+
+    it('keeps favorites rows without full channel metadata out of details and removal', () => {
+        fixture.componentRef.setInput('channels', [buildChannel('b', 'Beta')]);
+        fixture.detectChanges();
+
+        const marks = Array.from(
+            fixture.nativeElement.querySelectorAll('[data-tv-action]')
+        ) as HTMLElement[];
+        expect(
+            marks.map((mark) => mark.getAttribute('data-tv-action'))
+        ).toEqual(['']);
+    });
 });
 
 function buildChannel(

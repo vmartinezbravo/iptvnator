@@ -45,6 +45,13 @@
             [isFavorite]="isChannelFavorite(ch)"
             [showProgramInfoButton]="true"
             [showDetailsContextMenu]="hasChannelContextMenu(ch)"
+            [tvDetailsAction]="!!ch.m3uChannel"
+            [tvRemoveAction]="mode() === 'recent'"
+            [auxActionTooltip]="
+                'WORKSPACE.DASHBOARD.REMOVE_FROM_HISTORY' | translate
+            "
+            (detailsRequested)="showChannelDetails(ch)"
+            (removeRequested)="removeRequested.emit(ch)"
             (clicked)="onChannelClick(ch)"
             (activated)="onChannelActivate(ch)"
             (keyboardActivated)="playbackRequested.emit(ch)"

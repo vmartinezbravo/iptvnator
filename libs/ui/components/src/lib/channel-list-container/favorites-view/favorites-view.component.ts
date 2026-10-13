@@ -193,6 +193,12 @@ export class FavoritesViewComponent {
         });
     }
 
+    /** Details from the TV options menu: no click position, no menu. */
+    showChannelDetails(channel: Channel): void {
+        this.contextMenuChannel.set(channel);
+        this.openChannelDetails();
+    }
+
     openChannelDetails(): void {
         const channel = this.contextMenuChannel();
         if (!channel) {

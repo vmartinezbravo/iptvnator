@@ -78,6 +78,9 @@ export class ChannelListItemComponent {
     readonly progressPercentage = input(0);
     readonly auxActionIcon = input('delete');
     readonly auxActionTooltip = input('');
+    /** Offer "details" / "remove" to the TV options menu (no button drawn). */
+    readonly tvDetailsAction = input(false);
+    readonly tvRemoveAction = input(false);
 
     readonly clicked = output<void>();
     /** Pointer double click; consumers retain their existing preference gate. */
@@ -87,6 +90,8 @@ export class ChannelListItemComponent {
     readonly favoriteToggled = output<MouseEvent>();
     readonly auxActionClicked = output<MouseEvent>();
     readonly contextMenuRequested = output<MouseEvent>();
+    readonly detailsRequested = output<void>();
+    readonly removeRequested = output<void>();
 
     constructor() {
         if (!this.detailsReady()) {
@@ -135,6 +140,16 @@ export class ChannelListItemComponent {
     onAuxActionClick(event: MouseEvent): void {
         event.stopPropagation();
         this.auxActionClicked.emit(event);
+    }
+
+    onTvDetails(event: MouseEvent): void {
+        event.stopPropagation();
+        this.detailsRequested.emit();
+    }
+
+    onTvRemove(event: MouseEvent): void {
+        event.stopPropagation();
+        this.removeRequested.emit();
     }
 
     onClick(event?: MouseEvent): void {

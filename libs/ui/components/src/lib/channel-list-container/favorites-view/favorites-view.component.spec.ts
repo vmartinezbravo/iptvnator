@@ -102,4 +102,20 @@ describe('FavoritesViewComponent', () => {
             })
         );
     });
+
+    it('offers unfavoriting and details of a row to the TV options menu', () => {
+        const marks = Array.from(
+            fixture.nativeElement.querySelectorAll('[data-tv-action]')
+        ) as HTMLButtonElement[];
+
+        expect(marks.map((mark) => mark.getAttribute('data-tv-label'))).toEqual(
+            ['CHANNELS.REMOVE_FAVORITE', 'CHANNELS.SHOW_DETAILS']
+        );
+
+        marks[1].click();
+        expect(dialog.open).toHaveBeenCalledWith(
+            ChannelDetailsDialogComponent,
+            expect.objectContaining({ data: primaryChannel })
+        );
+    });
 });

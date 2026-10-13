@@ -127,4 +127,25 @@ describe('RecentViewComponent', () => {
 
         expect(removed).toHaveBeenCalledWith(primaryChannel.url);
     });
+
+    it('offers removal and details of a row to the TV options menu', () => {
+        const removed = jest.fn();
+        component.removeRecent.subscribe(removed);
+        const marks = Array.from(
+            fixture.nativeElement.querySelectorAll('[data-tv-action]')
+        ) as HTMLButtonElement[];
+
+        // No "map EPG": the TV menu only removes and shows details.
+        expect(marks.map((mark) => mark.getAttribute('data-tv-label'))).toEqual(
+            ['WORKSPACE.DASHBOARD.REMOVE_FROM_HISTORY', 'CHANNELS.SHOW_DETAILS']
+        );
+
+        marks[1].click();
+        expect(dialog.open).toHaveBeenCalledWith(
+            ChannelDetailsDialogComponent,
+            expect.objectContaining({ data: primaryChannel })
+        );
+        marks[0].click();
+        expect(removed).toHaveBeenCalledWith(primaryChannel.url);
+    });
 });

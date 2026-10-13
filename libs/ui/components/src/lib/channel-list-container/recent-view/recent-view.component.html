@@ -26,6 +26,8 @@
                 [selected]="activeChannelUrl() === item.channel.url"
                 [showDetailsContextMenu]="true"
                 [showAuxActionButton]="true"
+                [tvDetailsAction]="true"
+                (detailsRequested)="showChannelDetails(item.channel)"
                 [auxActionIcon]="'delete'"
                 [auxActionTooltip]="
                     'WORKSPACE.DASHBOARD.REMOVE_FROM_HISTORY' | translate

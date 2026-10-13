@@ -126,6 +126,8 @@
                 <button
                     mat-icon-button
                     class="favorite-button"
+                    data-tv-action
+                    [attr.data-tv-label]="auxActionTooltip()"
                     [matTooltip]="auxActionTooltip()"
                     [attr.aria-label]="auxActionTooltip()"
                     (click)="onAuxActionClick($event)"
@@ -154,5 +156,26 @@
                 </button>
             }
         </div>
+    }
+    <!-- Options of the TV menu with no button of their own on screen. -->
+    @if (tvDetailsAction()) {
+        <button
+            type="button"
+            hidden
+            tabindex="-1"
+            data-tv-action="details"
+            [attr.data-tv-label]="'CHANNELS.SHOW_DETAILS' | translate"
+            (click)="onTvDetails($event)"
+        ></button>
+    }
+    @if (tvRemoveAction()) {
+        <button
+            type="button"
+            hidden
+            tabindex="-1"
+            data-tv-action="remove"
+            [attr.data-tv-label]="auxActionTooltip()"
+            (click)="onTvRemove($event)"
+        ></button>
     }
 </div>

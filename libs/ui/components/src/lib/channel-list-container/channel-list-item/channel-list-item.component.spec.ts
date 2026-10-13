@@ -228,6 +228,65 @@ describe('ChannelListItemComponent', () => {
         ]);
     });
 
+    it('hands the aux (remove) action to the TV options menu, named after its tooltip', () => {
+        fixture.componentRef.setInput('name', 'Recent');
+        fixture.componentRef.setInput('showAuxActionButton', true);
+        fixture.componentRef.setInput('auxActionTooltip', 'Remove from history');
+        fixture.detectChanges();
+
+        const aux = fixture.nativeElement.querySelector(
+            '.action-buttons button'
+        ) as HTMLElement;
+        expect(aux.hasAttribute('data-tv-action')).toBe(true);
+        expect(aux.getAttribute('data-tv-label')).toBe('Remove from history');
+    });
+
+    it('offers channel details to the TV options menu without drawing a button', () => {
+        const requested = jest.fn();
+        fixture.componentInstance.detailsRequested.subscribe(requested);
+        fixture.componentRef.setInput('name', 'News');
+        fixture.componentRef.setInput('tvDetailsAction', true);
+        fixture.detectChanges();
+
+        const details = fixture.nativeElement.querySelector(
+            '[data-tv-action="details"]'
+        ) as HTMLButtonElement;
+        expect(details.hidden).toBe(true);
+        expect(details.getAttribute('data-tv-label')).toBe(
+            'CHANNELS.SHOW_DETAILS'
+        );
+        details.click();
+        expect(requested).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers removal to the TV options menu without drawing a button', () => {
+        const requested = jest.fn();
+        fixture.componentInstance.removeRequested.subscribe(requested);
+        fixture.componentRef.setInput('name', 'News');
+        fixture.componentRef.setInput('tvRemoveAction', true);
+        fixture.componentRef.setInput('auxActionTooltip', 'Remove from history');
+        fixture.detectChanges();
+
+        const remove = fixture.nativeElement.querySelector(
+            '[data-tv-action="remove"]'
+        ) as HTMLButtonElement;
+        expect(remove.hidden).toBe(true);
+        expect(remove.getAttribute('data-tv-label')).toBe(
+            'Remove from history'
+        );
+        remove.click();
+        expect(requested).toHaveBeenCalledTimes(1);
+    });
+
+    it('has no TV details or removal action unless asked', () => {
+        fixture.componentRef.setInput('name', 'News');
+        fixture.detectChanges();
+
+        expect(
+            fixture.nativeElement.querySelector('[data-tv-action]')
+        ).toBeNull();
+    });
+
     it('renders the catch-up badge only when catch-up is available', () => {
         fixture.componentRef.setInput('name', 'Archive Channel');
         fixture.detectChanges();

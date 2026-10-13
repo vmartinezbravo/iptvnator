@@ -286,6 +286,12 @@ export class GlobalFavoritesListComponent {
         return id || null;
     }
 
+    /** Details from the TV options menu: no click position, no menu. */
+    showChannelDetails(channel: EnrichedUnifiedFavorite): void {
+        this.contextMenuChannel.set(channel);
+        this.openChannelDetails();
+    }
+
     openChannelDetails(): void {
         const channel = this.contextMenuChannel()?.m3uChannel;
         if (!channel) {

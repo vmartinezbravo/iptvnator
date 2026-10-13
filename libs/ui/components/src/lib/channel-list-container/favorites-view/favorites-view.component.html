@@ -41,6 +41,8 @@
                 (contextMenuRequested)="onChannelContextMenu(channel, $event)"
                 [selected]="activeChannelUrl() === channel?.url"
                 [showFavoriteButton]="true"
+                [tvDetailsAction]="true"
+                (detailsRequested)="showChannelDetails(channel)"
                 [isFavorite]="true"
                 (favoriteToggled)="onFavoriteToggle(channel, $event)"
             />
