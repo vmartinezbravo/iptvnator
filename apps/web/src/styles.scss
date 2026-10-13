@@ -326,6 +326,26 @@ body.dark-theme {
     visibility: hidden !important;
 }
 
+// The hint shown while the focused element has options (startTvOptionsHint).
+.tv-options-hint {
+    display: none;
+}
+
+.native-shell .tv-options-hint:not([hidden]) {
+    display: block;
+    position: fixed;
+    right: 24px;
+    bottom: 16px;
+    z-index: 900;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 72%);
+    color: #fff;
+    font-size: 14px;
+    line-height: 20px;
+    pointer-events: none;
+}
+
 // Header controls a remote has no use for: keyboard shortcuts, the header
 // Back (the remote has its own) and the channel list toggle.
 .native-shell [data-tv-hidden] {

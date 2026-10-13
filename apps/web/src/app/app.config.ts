@@ -17,6 +17,7 @@ import {
 } from '@angular/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import { MatDialog } from '@angular/material/dialog';
+import { TranslateService } from '@ngx-translate/core';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import {
     provideRouter,
@@ -55,6 +56,7 @@ import { providePortalPlaybackPositions } from './services/portal-playback-posit
 import { shouldEnableServiceWorker } from './services/runtime-config';
 import { startNativeStyleTuning } from './services/native-style-tuning';
 import { startSectionSwitchBar } from './services/section-switch-bar';
+import { startTvOptionsHint } from './services/tv-options/tv-options-hint';
 import { startTvOptionsKeys } from './services/tv-options/tv-options-keys';
 import { loadSpatialNavigation } from './services/spatial-navigation.loader';
 import { startToggleGroupDpad } from './services/toggle-group-dpad';
@@ -127,6 +129,9 @@ export const appConfig: ApplicationConfig = {
                     navigate: (url) => router.navigateByUrl(url),
                     events: router.events,
                 });
+                startTvOptionsHint(() =>
+                    injector.get(TranslateService).instant('TV_OPTIONS.HINT')
+                );
                 // The options menu loads on its first use.
                 startTvOptionsKeys((actions) => {
                     void import(

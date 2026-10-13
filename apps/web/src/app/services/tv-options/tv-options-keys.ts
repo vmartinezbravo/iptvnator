@@ -18,16 +18,17 @@ export const LONG_PRESS_MS = 500;
 export function findTvActions(from: Element | null): TvAction[] {
     const item = from?.closest<HTMLElement>('[data-tv-item]');
     if (!item) return [];
-    const named = (item.dataset['tvActions'] ?? '')
-        .split(/\s+/)
-        .filter(Boolean)
-        .flatMap((name) =>
-            Array.from(
+    const named: HTMLElement[] = [];
+    for (const name of (item.dataset['tvActions'] ?? '').split(/\s+/)) {
+        if (!name) continue;
+        named.push(
+            ...Array.from(
                 item.ownerDocument.querySelectorAll<HTMLElement>(
                     `[data-tv-action="${name}"]`
                 )
             )
         );
+    }
     return [
         ...Array.from(item.querySelectorAll<HTMLElement>('[data-tv-action]')),
         ...named,

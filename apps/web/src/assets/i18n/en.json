@@ -6,7 +6,8 @@
     "REMOVE": "Remove",
     "BACK": "Back",
     "TV_OPTIONS": {
-        "TITLE": "Options"
+        "TITLE": "Options",
+        "HINT": "Menu ≡ or hold OK: options"
     },
     "TV_EXIT": {
         "TITLE": "Exit IPTVnator?",

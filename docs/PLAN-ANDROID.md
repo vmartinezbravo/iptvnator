@@ -1425,6 +1425,27 @@ y M3U no lo tienen.
       - en las filas de canales, derecha ya no se detiene en la estrella.
       - No se resuelven: izquierda desde una rejilla vuelve a la categoría que está a su altura, y en la ficha de serie, arriba desde la descripción y abajo tras el último elemento siguen saltando a las categorías. Dependen del mapa de foco, aparcado.
     - **Coste estimado (propuesta C):** M. Hay que reenviar Menú en `MainActivity`, crear un servicio de menú contextual que lea las acciones del elemento enfocado (cada tarjeta, fila o episodio declara las suyas) y añadir las clases del runtime en 5 o 6 plantillas, con tests que fallen primero en cada una.
+    - **Aprobada y aplicada** [Víctor, 2026-10-13]: Grid/List se queda.
+      1. **Tecla Menú y menú contextual** (`9abc6ca18`).
+         - `MenuKey` (Java) reenvía la primera pulsación de Menú como tecla `ContextMenu` sobre el elemento enfocado.
+         - `startTvOptionsKeys` abre `TvOptionsDialogComponent`, cargado al primer uso, con los `[data-tv-action]` del `[data-tv-item]` enfocado. Por ser un diálogo, el D-pad no sale de él y Atrás lo cierra. Al elegir una opción se cierra primero y después se pulsa el botón oculto.
+         - **OK largo:** más de 500 ms, o una segunda pulsación antes de soltar. En los elementos con opciones, OK actúa al soltar.
+      2. **Acciones al menú** (`b970c1ae0`): los 3 puntos de las tarjetas del panel, de las fichas de película y serie y de cada episodio; «Mark as Watched» de los episodios; y los favoritos de las filas de canal y de las fichas. En `.native-shell` se ocultan con `visibility: hidden`: siguen ocupando su sitio y los menús que abren se colocan bien.
+         - **Ruling:** «Mark as Watched» de la ficha de película se queda visible, porque la lista aprobada solo nombraba el de los episodios.
+         - **Ruling:** la estrella del canal tenía una etiqueta genérica («Favorite»), así que lleva `data-tv-label` con «Añadir/Quitar de favoritos».
+      3. **Cabecera** (`5625a8628`): se ocultan «Atajos de teclado», el «Atrás» de la cabecera y «Mostrar/ocultar lista de canales» (`data-tv-hidden`, `display: none`). La paleta de comandos pasa al menú Menú del menú lateral (`data-tv-actions="workspace-command-palette"`).
+         - **Ruling:** el candado parental y el atajo contextual de la cabecera se quedan, porque no estaban en la lista.
+      4. **Pista** (este paso): «Menú ≡ u OK largo: opciones» abajo a la derecha, solo mientras el elemento enfocado tiene opciones (`startTvOptionsHint`).
+      - **Fallo encontrado al hacer el build Android:** `flatMap` no existe en la librería de TypeScript de la app (Jest y el lint no lo vieron), así que se cambió por un bucle. Por eso la APK de los pasos 1–3 no se había sincronizado; se instaló bien en el paso 4.
+      - **Comprobado en el Stick** con teclas reales y sin elegir nada que cambie datos:
+        - **menú lateral:** Menú abre «Open command palette», con el foco dentro, y Atrás cierra;
+        - **tarjeta del panel:** Menú y OK largo abren «More» sin abrir la tarjeta; elegir «More» abre su menú de siempre (3 opciones, foco dentro) y Atrás lo cierra;
+        - **episodio:** «Mark as Watched» y «More actions»;
+        - **fila de acciones de la ficha de serie:** «Add to favorites» y «More actions»;
+        - **la pista** aparece y se oculta cuando toca;
+        - **episodios:** abajo pasa de fila en fila de la rejilla de dos columnas sin pararse en los botones ocultos;
+        - **cabecera:** los tres botones ocultos y la paleta invisible.
+      - **No probado:** el OK corto sobre un elemento con opciones, porque en las tarjetas de recientes, episodios y canales reproduce y añadiría recientes. Queda para la prueba de Víctor.
   - **Tarea D: indicador de carga** [2026-10-13]. Antes de implementar, se midió en el Stick cuánto tarda cada paso:
     - **Inicio del reproductor:** 4,1 s al elegir canal y 2,9 s en el zapping (mediciones de la 4c). Mientras se resolvía la dirección del canal, la pantalla quedaba en negro, porque el indicador de Media3 (`show_buffering="when_playing"`) solo aparece una vez preparado el vídeo.
       - **Hecho:** un indicador propio en el centro, desde cada inicio o zapping hasta el primer fotograma y otra vez si el vídeo se queda cargando. Lo sustituye la pantalla de error. El de Media3 pasa a `never`, para que no salgan dos.
