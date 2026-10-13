@@ -314,6 +314,26 @@ describe('VodDetailsRouteComponent', () => {
         expect(host.querySelector('[data-testid="vod-favorite-toggle"]')).not.toBeNull();
     });
 
+    it('hands the favorite and the more menu to the TV options menu', () => {
+        selectedItem.set({
+            info: [],
+            stream_id: 650020,
+            container_extension: 'mkv',
+        } as unknown as XtreamVodDetails);
+        fixture.detectChanges();
+
+        const host = fixture.nativeElement as HTMLElement;
+        const marks = Array.from(host.querySelectorAll('[data-tv-action]'));
+        expect(
+            marks.map((mark) =>
+                mark.querySelector('button')?.getAttribute('data-testid')
+            )
+        ).toEqual(['vod-favorite-toggle', 'vod-more-menu']);
+        expect(marks[0].getAttribute('data-tv-label')).toBe(
+            'PORTALS.ADD_TO_FAVORITES'
+        );
+    });
+
     it('keeps the full Xtream detail view when usable metadata exists', () => {
         selectedItem.set({
             info: {

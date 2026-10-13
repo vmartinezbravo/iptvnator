@@ -9,23 +9,29 @@ export const LONG_PRESS_MS = 500;
 
 /**
  * The options of the item that holds `from`: the enabled `[data-tv-action]`
- * buttons inside its closest `[data-tv-item]`, in page order. The label is
- * the button's own (translated) aria-label.
+ * buttons inside its closest `[data-tv-item]`, in page order. A mark on a
+ * component stands for the button inside it. The label is the mark's
+ * `data-tv-label`, else the button's own (translated) aria-label.
  */
 export function findTvActions(from: Element | null): TvAction[] {
     const item = from?.closest('[data-tv-item]');
     if (!item) return [];
-    return Array.from(
-        item.querySelectorAll<HTMLButtonElement>('[data-tv-action]')
-    )
-        .filter((button) => !button.disabled)
-        .map((button) => ({
+    return Array.from(item.querySelectorAll<HTMLElement>('[data-tv-action]'))
+        .map((mark) => ({
+            mark,
+            button: (mark instanceof HTMLButtonElement
+                ? mark
+                : mark.querySelector('button')) as HTMLButtonElement | null,
+        }))
+        .filter(({ button }) => button && !button.disabled)
+        .map(({ mark, button }) => ({
             label: (
-                button.getAttribute('aria-label') ??
-                button.textContent ??
+                mark.dataset['tvLabel'] ??
+                button?.getAttribute('aria-label') ??
+                button?.textContent ??
                 ''
             ).trim(),
-            run: () => button.click(),
+            run: () => button?.click(),
         }));
 }
 

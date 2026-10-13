@@ -138,12 +138,20 @@
                 [active]="isFavorite()"
                 [pressedState]="isFavorite()"
                 testId="series-favorite-toggle"
+                data-tv-action
+                [attr.data-tv-label]="
+                    (isFavorite()
+                        ? 'PORTALS.REMOVE_FROM_FAVORITES'
+                        : 'PORTALS.ADD_TO_FAVORITES'
+                    ) | translate
+                "
                 (pressed)="toggleFavorite()"
             />
             <app-vod-more-menu
                 [sections]="menu.sections()"
                 [label]="'PORTALS.DETAIL.MORE_ACTIONS' | translate"
                 testId="series-more-menu"
+                data-tv-action
                 (selected)="menu.run($event)"
             />
             <app-view-in-portal-action />

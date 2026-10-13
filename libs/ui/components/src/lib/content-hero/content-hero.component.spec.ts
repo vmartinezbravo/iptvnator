@@ -143,6 +143,15 @@ describe('ContentHeroComponent cinematic layout', () => {
         ).toBe('63%');
     });
 
+    it('makes the action row the item whose options the TV menu lists', () => {
+        fixture.componentRef.setInput('title', 'Black Harbor');
+        fixture.detectChanges();
+
+        expect(
+            host().querySelector('.action-buttons')?.hasAttribute('data-tv-item')
+        ).toBe(true);
+    });
+
     it('hides the resume bar and kind label when absent', () => {
         fixture.componentRef.setInput('title', 'Black Harbor');
         fixture.detectChanges();

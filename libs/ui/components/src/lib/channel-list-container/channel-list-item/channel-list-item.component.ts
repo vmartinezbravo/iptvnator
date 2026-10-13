@@ -23,6 +23,8 @@ import { RowDetailsScheduler } from './row-details-scheduler';
 
 @Component({
     selector: 'app-channel-list-item',
+    // Its favorite toggle moves to the TV options menu.
+    host: { 'data-tv-item': '' },
     styleUrls: ['./channel-list-item.component.scss'],
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './channel-list-item.component.html',

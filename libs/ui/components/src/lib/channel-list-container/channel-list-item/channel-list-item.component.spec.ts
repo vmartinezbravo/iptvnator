@@ -194,6 +194,20 @@ describe('ChannelListItemComponent', () => {
         expect(toggle.getAttribute('aria-pressed')).toBe('true');
     });
 
+    it('hands the favorite toggle to the TV options menu, named after its tooltip', () => {
+        fixture.componentRef.setInput('name', 'Starred');
+        fixture.componentRef.setInput('showFavoriteButton', true);
+        fixture.detectChanges();
+
+        const host = fixture.nativeElement as HTMLElement;
+        const toggle = host.querySelector('.favorite-button');
+        expect(host.hasAttribute('data-tv-item')).toBe(true);
+        expect(toggle?.hasAttribute('data-tv-action')).toBe(true);
+        expect(toggle?.getAttribute('data-tv-label')).toBe(
+            'CHANNELS.ADD_FAVORITE'
+        );
+    });
+
     it('names the icon-only row actions after their tooltips', () => {
         fixture.componentRef.setInput('name', 'Recent');
         fixture.componentRef.setInput('showAuxActionButton', true);

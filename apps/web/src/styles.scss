@@ -318,6 +318,14 @@ body.dark-theme {
     transition: none !important;
 }
 
+// Fire TV / Android TV (Task 5.5, C): the item options that the remote
+// reaches through the Menu key or a long OK (startTvOptionsKeys). Hidden
+// but laid out, so the D-pad skips them and the menus they open still
+// anchor to them.
+.native-shell [data-tv-action] {
+    visibility: hidden !important;
+}
+
 // Fire TV / Android TV (Task 5.5, D): the bar shown while a side-menu
 // section opens (startSectionSwitchBar). Opacity and transform animations
 // run on the compositor, so it keeps moving while the page is blocked; it

@@ -53,6 +53,8 @@ export type EpisodeItemLayout = 'list' | 'grid';
     ],
     host: {
         class: 'episode-item',
+        // Its watched toggle and more menu move to the TV options menu.
+        'data-tv-item': '',
         '[class.episode-list-item]': "layout() === 'list'",
         '[class.episode-card]': "layout() === 'grid'",
         '[class.episode-item--bare]': 'bare()',

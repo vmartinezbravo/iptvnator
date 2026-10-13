@@ -50,6 +50,27 @@ describe('TV options keys', () => {
         expect(findTvActions(plain)).toEqual([]);
     });
 
+    it('presses the button inside a marked component, named by its TV label', () => {
+        document.body.innerHTML = `
+            <div data-tv-item>
+                <button id="play">Play</button>
+                <app-detail-icon-button data-tv-action data-tv-label="Remove from favorites">
+                    <button aria-label="Favorite">♥</button>
+                </app-detail-icon-button>
+            </div>`;
+        const inner = document.querySelector(
+            'app-detail-icon-button button'
+        ) as HTMLButtonElement;
+        const pressed = jest.fn();
+        inner.addEventListener('click', pressed);
+
+        const [action] = findTvActions(document.getElementById('play'));
+        action.run();
+
+        expect(action.label).toBe('Remove from favorites');
+        expect(pressed).toHaveBeenCalledTimes(1);
+    });
+
     it('runs an action by pressing its hidden button', () => {
         const more = document.querySelector(
             '[aria-label="More actions"]'

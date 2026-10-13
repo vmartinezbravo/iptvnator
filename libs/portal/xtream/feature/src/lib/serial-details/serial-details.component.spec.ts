@@ -231,6 +231,23 @@ describe('SerialDetailsComponent', () => {
         expect(cancelDetailsRequest).toHaveBeenCalledTimes(1);
     });
 
+    it('hands the favorite and the more menu to the TV options menu', async () => {
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        const host = fixture.nativeElement as HTMLElement;
+        const marks = Array.from(host.querySelectorAll('[data-tv-action]'));
+        expect(
+            marks.map((mark) =>
+                mark.querySelector('button')?.getAttribute('data-testid')
+            )
+        ).toEqual(['series-favorite-toggle', 'series-more-menu']);
+        expect(marks[0].getAttribute('data-tv-label')).toBe(
+            'PORTALS.ADD_TO_FAVORITES'
+        );
+    });
+
     it('renders series metadata when backdrop_path is absent at runtime', () => {
         selectedItem.set({
             series_id: 103,

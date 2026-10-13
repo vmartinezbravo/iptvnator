@@ -108,6 +108,25 @@ describe('DashboardRailComponent', () => {
             return fixture.nativeElement as HTMLElement;
         };
 
+        it('hands the more menu of a card to the TV options menu', async () => {
+            const element = await renderCards([
+                card({
+                    id: 'recent',
+                    actions: [
+                        { id: 'remove', labelKey: 'REMOVE', icon: 'delete' },
+                    ],
+                }),
+            ]);
+
+            const wrapper = element.querySelector('.rail__card');
+            expect(wrapper?.hasAttribute('data-tv-item')).toBe(true);
+            expect(
+                wrapper
+                    ?.querySelector('.rail__action-trigger')
+                    ?.hasAttribute('data-tv-action')
+            ).toBe(true);
+        });
+
         it('renders the chip only for cards with a badge and tones expired ones', async () => {
             const element = await renderCards([
                 card({

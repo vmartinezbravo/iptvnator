@@ -111,6 +111,7 @@
         type="button"
         class="episode-item__action episode-item__watched-toggle"
         data-testid="episode-watched-toggle"
+        data-tv-action
         [class.episode-item__watched-toggle--watched]="watched()"
         [class.episode-card__watched-toggle--watched]="watched()"
         [attr.aria-pressed]="watched()"
@@ -154,6 +155,7 @@
         type="button"
         class="episode-item__action"
         data-testid="episode-more-button"
+        data-tv-action
         [attr.aria-label]="'PORTALS.DETAIL.MORE_ACTIONS' | translate"
         [matTooltip]="'PORTALS.DETAIL.MORE_ACTIONS' | translate"
         [matMenuTriggerFor]="episodeMenu"

@@ -64,6 +64,7 @@
                     <div
                         #cardEl
                         class="rail__card rail__card--channel"
+                        data-tv-item
                         role="listitem"
                         [attr.data-card-id]="card.id"
                         [attr.title]="cardTitle(card)"
@@ -153,6 +154,7 @@
                     <div
                         #cardEl
                         class="rail__card"
+                        data-tv-item
                         role="listitem"
                         [attr.data-card-id]="card.id"
                         [attr.title]="cardTitle(card)"
@@ -268,6 +270,7 @@
                                 type="button"
                                 mat-icon-button
                                 class="rail__action-trigger"
+                                data-tv-action
                                 [matMenuTriggerFor]="cardActionMenu"
                                 [matMenuTriggerData]="{ card: card }"
                                 [attr.aria-label]="'SHOW_MORE' | translate"

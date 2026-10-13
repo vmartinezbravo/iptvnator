@@ -121,6 +121,17 @@ describe('EpisodeItemComponent', () => {
         expect(played).not.toHaveBeenCalled();
     });
 
+    it('hands Mark as Watched and the more menu to the TV options menu', () => {
+        fixture.detectChanges();
+
+        expect(el().hasAttribute('data-tv-item')).toBe(true);
+        expect(
+            Array.from(el().querySelectorAll('[data-tv-action]')).map(
+                (action) => action.getAttribute('data-testid')
+            )
+        ).toEqual(['episode-watched-toggle', 'episode-more-button']);
+    });
+
     it('keeps the actions in the DOM for every row (reserved slot)', () => {
         fixture.detectChanges();
         expect(q('.episode-item__actions')).not.toBeNull();

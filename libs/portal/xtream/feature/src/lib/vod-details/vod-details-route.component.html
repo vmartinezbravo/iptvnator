@@ -34,6 +34,13 @@
                 [pulsing]="favoritePulse()"
                 [pressedState]="isFavorite()"
                 testId="vod-favorite-toggle"
+                data-tv-action
+                [attr.data-tv-label]="
+                    (isFavorite()
+                        ? 'PORTALS.REMOVE_FROM_FAVORITES'
+                        : 'PORTALS.ADD_TO_FAVORITES'
+                    ) | translate
+                "
                 (pressed)="toggleFavorite()"
             />
             <app-detail-icon-button
@@ -148,6 +155,7 @@
                 [sections]="menu.sections()"
                 [label]="'PORTALS.DETAIL.MORE_ACTIONS' | translate"
                 testId="vod-more-menu"
+                data-tv-action
                 [sources]="multiSource.sources()"
                 [sourcesTitle]="multiSourceTitle()"
                 [matchKind]="multiSource.matchKind()"
