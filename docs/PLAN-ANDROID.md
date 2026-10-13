@@ -1397,6 +1397,34 @@ y M3U no lo tienen.
       - derecha desde el menú lleva a veces a un botón de la cabecera, y abajo desde ahí vuelve al menú;
       - izquierda desde una rejilla vuelve a la categoría que está a su altura, no a la elegida;
       - en la ficha de serie, abajo al final y arriba al principio saltan a las categorías.
+  - **Prueba de Víctor con el mando tras los pasos 1–3** [2026-10-13]: las carpetas tras el zapping y Series funcionan bien. Los saltos entre paneles y el scroll de 40 px no le molestan, así que el mapa de foco (paso 4) no se hace por ahora. «Sin Señal» solo tiene una temporada: el selector de temporadas no tiene ningún fallo.
+  - **Propuesta C: modo TV simplificado** (pendiente de la aprobación de Víctor; no se aplica nada sin ella).
+    - **Alcance:** solo en el runtime nativo y bajo una clase del runtime, como el resto de la fase. No se elimina ninguna función: lo que se oculta del recorrido del D-pad pasa a la tecla Menú del mando o a OK largo, o sigue disponible en otra pantalla.
+    - **Teclas** (comprobado en el Stick):
+      - Menú (≡) no llega al WebView: `MainActivity` tendría que reenviarla a la página como una tecla propia (por ejemplo, `ContextMenu`).
+      - OK largo llega como `Enter` repetido. Se distinguiría midiendo el tiempo hasta el `keyup` (más de 500 ms). Falta comprobar con el mando real si llega con `repeat`.
+      - Propuesta: Menú es la vía principal y OK largo, la alternativa. Las dos abren el mismo menú contextual del elemento enfocado.
+    - **Qué se mueve al menú contextual** (Menú / OK largo sobre el elemento enfocado):
+      1. Los 3 puntos (`more_vert`) de las tarjetas del panel de inicio y de la ficha de película (`vod-more-menu`: reproducir en MPV/VLC, desde el principio…).
+      2. Los 3 puntos de cada episodio («Reproducir desde el principio», «Información del episodio»).
+      3. «Mark as Watched» de cada episodio. Así desaparece la parada extra de la flecha abajo anotada en la 5.2.
+      4. La estrella de favoritos de las filas de canales (vista de lista), y la de las fichas de película y de serie: «Añadir a favoritos / Quitar de favoritos».
+    - **Qué se oculta en la cabecera**, porque con el mando no aporta nada o ya tiene tecla propia:
+      1. «Atajos de teclado» (icono de teclado): con el mando no hay atajos.
+      2. «Atrás» de la cabecera (`header-back`): el mando tiene Atrás (Task 5.3).
+      3. «Mostrar/ocultar panel lateral» (`header-shortcut`, `view_sidebar`): no aplica a la pantalla fija de la tele.
+      4. La paleta de comandos (`command-trigger`, rayo): necesita teclado. Se propone moverla al menú Menú cuando el foco está en el menú lateral, en vez de quitarla.
+    - **Qué se queda** (función principal con mando):
+      - el buscador de la cabecera y «Advanced search»;
+      - «Añadir fuente» (`add`), aunque se propone dejarlo solo en la pantalla Fuentes;
+      - los filtros y la búsqueda del panel de categorías (`search`, `tune`, `dns`);
+      - el selector Grid/List, reproducir, temporadas y episodios.
+    - **Saltos de foco que desaparecerían solos:**
+      - derecha desde el menú lateral ya no puede caer en un botón de la cabecera, así que va a las categorías o al contenido, y deja de existir el «abajo desde la cabecera vuelve al menú»;
+      - en la ficha de serie, abajo pasa de un episodio al siguiente sin parar en «Mark as Watched» ni en los 3 puntos;
+      - en las filas de canales, derecha ya no se detiene en la estrella.
+      - No se resuelven: izquierda desde una rejilla vuelve a la categoría que está a su altura, y en la ficha de serie, arriba desde la descripción y abajo tras el último elemento siguen saltando a las categorías. Dependen del mapa de foco, aparcado.
+    - **Coste estimado:** M. Hay que reenviar Menú en `MainActivity`, crear un servicio de menú contextual que lea las acciones del elemento enfocado (cada tarjeta, fila o episodio declara las suyas) y añadir las clases del runtime en 5 o 6 plantillas, con tests que fallen primero en cada una.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
