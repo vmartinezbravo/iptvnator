@@ -1445,6 +1445,7 @@ y M3U no lo tienen.
       - Se instala con `adb install -r` sobre la app actual, sin desinstalar ni tocar los datos.
       - Si el launcher guarda en caché el icono viejo, basta con reiniciar el Stick.
       - Coste: S.
+    - **Hecho** [OK de Víctor, 2026-10-13]: `tools/android/make-launcher-icons.mjs` genera los iconos. El primer plano adaptativo va al 80 %: con un 96 % el televisor tocaba los bordes de la máscara. Se instaló con `adb install -r`, sin desinstalar; `aapt dump badging` da `icon='res/mipmap-anydpi-v26/ic_launcher.xml'`. Si «Tus apps» muestra aún el icono viejo, reiniciar el Stick.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;
@@ -1530,19 +1531,12 @@ en la checklist de la Task 7.2, paso 1:
   WebView». Comprobar además que el diálogo se ve, recibe el foco del D-pad y
   que «Salir» funciona; se puede subir temporalmente `MIN_WEBVIEW_MAJOR` en un
   build de depuración. Nunca se ha mostrado en un dispositivo.
-- **IPTVnator en el launcher de Fire OS** (Task 5.1, 2026-10-13). El APK de
-  depuración lleva `LEANBACK_LAUNCHER` y el banner (`aapt dump badging` lo
-  confirma), pero «Mis apps y juegos» no la muestra, ni tras reiniciar ni tras
-  reinstalar con `-r`. Probablemente el launcher guardó la app antes de que
-  tuviera la categoría de TV. Al instalar la APK firmada hay que desinstalar la
-  de depuración de todos modos (otra firma): **exportar antes la copia de
-  ajustes**, instalar la firmada y comprobar que la app y su banner aparecen en
-  el launcher. Mientras tanto se abre desde Configuración → Aplicaciones →
-  Administrar aplicaciones instaladas → IPTVnator → Iniciar aplicación.
-  - **Aclarado en la tarea E de la 5.5** [2026-10-13]: la app sí está en el
-    launcher. Es la del «icono de conector», que es el icono por defecto de
-    Capacitor (`res/mipmap-*/ic_launcher*.png`, sin cambiar desde que se creó
-    el proyecto en `bac27353d`).
+- ~~IPTVnator en el launcher de Fire OS~~ — **quitado** [Víctor, 2026-10-13].
+  La app siempre estuvo en el launcher, con el icono genérico de Capacitor
+  (el «icono de conector»). Desde la tarea E de la 5.5 lleva el icono de
+  IPTVnator. Al instalar la APK firmada sigue haciendo falta exportar antes
+  la copia de ajustes, porque hay que desinstalar la de depuración (otra
+  firma); eso es parte de la Task 7.2 (instalación).
 
 ### Task 7.1: Keystore y firma
 
