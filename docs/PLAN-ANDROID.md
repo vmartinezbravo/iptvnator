@@ -1369,6 +1369,15 @@ en la checklist de la Task 7.2, paso 1:
   WebView». Comprobar además que el diálogo se ve, recibe el foco del D-pad y
   que «Salir» funciona; se puede subir temporalmente `MIN_WEBVIEW_MAJOR` en un
   build de depuración. Nunca se ha mostrado en un dispositivo.
+- **IPTVnator en el launcher de Fire OS** (Task 5.1, 2026-10-13). El APK de
+  depuración lleva `LEANBACK_LAUNCHER` y el banner (`aapt dump badging` lo
+  confirma), pero «Mis apps y juegos» no la muestra, ni tras reiniciar ni tras
+  reinstalar con `-r`. Probablemente el launcher guardó la app antes de que
+  tuviera la categoría de TV. Al instalar la APK firmada hay que desinstalar la
+  de depuración de todos modos (otra firma): **exportar antes la copia de
+  ajustes**, instalar la firmada y comprobar que la app y su banner aparecen en
+  el launcher. Mientras tanto se abre desde Configuración → Aplicaciones →
+  Administrar aplicaciones instaladas → IPTVnator → Iniciar aplicación.
 
 ### Task 7.1: Keystore y firma
 
