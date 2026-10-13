@@ -1438,6 +1438,11 @@ y M3U no lo tienen.
     - **No hecho, y por qué:** en las aperturas de sección en caliente el hilo de la página queda bloqueado entre 0,6 y 1 s (una sonda cada 100 ms no llegó a ejecutarse hasta los 568–1026 ms). Un indicador lanzado desde JavaScript no llegaría a pintarse antes de que acabe el bloqueo.
       - Alternativa: pintar primero una barra fina animada por CSS (sin JavaScript) y retrasar un fotograma la navegación del menú lateral. Coste S–M y con riesgo de efectos en la navegación.
       - Como solo Películas en caliente pasa de 1 s (1,6 s) y la palanca E de la fase 6 apunta a acortar esos bloqueos, queda **pendiente de que Víctor decida**.
+    - **Hecho en la web** [decisión de Víctor, 2026-10-13]: la barra solo con CSS en el cambio de sección, solo en el runtime nativo. `startSectionSwitchBar` (`apps/web/src/app/services/section-switch-bar.ts`) captura el clic (o el OK) en un enlace del menú lateral. Pone `section-switching` en `<html>` y navega tras el siguiente fotograma pintado. La barra (`.native-shell .section-switch-bar` en `styles.scss`) se anima con `transform` y `opacity`, que corren en el compositor, y se quita un fotograma después de `NavigationEnd`.
+      - **Ruling:** aparece a los 300 ms, también por CSS, para que los cambios rápidos no parpadeen.
+      - **Donde ya hay esqueletos** (primera carga tras arrancar), la barra se va al terminar la navegación y quedan los esqueletos. No se pone barra en el cambio de categoría: no pasa de 1 s.
+      - Tests que fallaron antes: los 4 de `section-switch-bar.spec.ts`.
+      - Comprobado en el Stick con OK real sobre Live TV: la barra se ve arriba durante el bloqueo, la clase se quita a los 3,5 s (primera apertura tras arrancar) y la sección se abre bien. Bundle inicial: 1,61 MB.
   - **Tarea E: icono del launcher** [2026-10-13], comprobado con adb (`cmd package query-activities … LEANBACK_LAUNCHER`) y sin desinstalar nada.
     - El launcher de TV lista 15 apps, entre ellas `com.victor.iptvnator/.MainActivity`.
     - La app del icono de conector es IPTVnator: usa el icono por defecto de Capacitor (`res/mipmap-*/ic_launcher*.png`, el adaptativo de `mipmap-anydpi-v26` y su fondo `ic_launcher_background`), que no se cambió al crear el proyecto. Fire OS muestra ese icono en «Tus apps»; el banner nuevo de la 5.1 solo aparece en las filas de TV.

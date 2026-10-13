@@ -17,7 +17,11 @@ import {
 } from '@angular/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import { provideAnimations } from '@angular/platform-browser/animations';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+import {
+    provideRouter,
+    Router,
+    withComponentInputBinding,
+} from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { provideEffects } from '@ngrx/effects';
 import { provideRouterStore, routerReducer } from '@ngrx/router-store';
@@ -49,6 +53,7 @@ import { provideParentalLockPrompt } from './services/parental-lock-prompt.servi
 import { providePortalPlaybackPositions } from './services/portal-playback-positions.service';
 import { shouldEnableServiceWorker } from './services/runtime-config';
 import { startNativeStyleTuning } from './services/native-style-tuning';
+import { startSectionSwitchBar } from './services/section-switch-bar';
 import { loadSpatialNavigation } from './services/spatial-navigation.loader';
 import { startToggleGroupDpad } from './services/toggle-group-dpad';
 import { containOverlayDpad } from './services/overlay-dpad-containment';
@@ -113,6 +118,13 @@ export const appConfig: ApplicationConfig = {
             const runtime = inject(RuntimeCapabilitiesService);
             const overlays = inject(OverlayContainer);
             startNativeStyleTuning(runtime);
+            if (runtime.isNativeShell) {
+                const router = inject(Router);
+                startSectionSwitchBar({
+                    navigate: (url) => router.navigateByUrl(url),
+                    events: router.events,
+                });
+            }
             // The Back handler and its dialogs stay out of the initial
             // bundle: they load on the first Back press.
             const injector = inject(Injector);

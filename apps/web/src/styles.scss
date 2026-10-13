@@ -317,3 +317,52 @@ body.dark-theme {
 .native-shell *::after {
     transition: none !important;
 }
+
+// Fire TV / Android TV (Task 5.5, D): the bar shown while a side-menu
+// section opens (startSectionSwitchBar). Opacity and transform animations
+// run on the compositor, so it keeps moving while the page is blocked; it
+// appears after 300 ms, so quick switches do not flash it.
+.section-switch-bar {
+    display: none;
+}
+
+.native-shell .section-switch-bar {
+    display: block;
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 10000;
+    height: 3px;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 40%;
+        background: var(--mat-sys-primary, #2196f3);
+        transform: translateX(-100%);
+        will-change: transform;
+    }
+}
+
+.native-shell.section-switching .section-switch-bar {
+    animation: section-switch-appear 0s linear 300ms forwards;
+
+    &::before {
+        animation: section-switch-slide 1.1s linear infinite;
+    }
+}
+
+@keyframes section-switch-appear {
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes section-switch-slide {
+    to {
+        transform: translateX(250%);
+    }
+}
