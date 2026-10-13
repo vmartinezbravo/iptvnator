@@ -1,7 +1,8 @@
 import { RuntimeCapabilitiesService } from '@iptvnator/services';
 
 /**
- * Loads the WICG spatial navigation polyfill on the native shell (Fire TV,
+ * Loads the WICG spatial navigation polyfill (the repo copy in
+ * `../vendor/spatial-navigation-polyfill`) on the native shell (Fire TV,
  * Android TV), so the D-pad arrows move the focus to the nearest focusable
  * element. Desktop and the PWA never download it. Lists with their own arrow
  * handling keep it: the polyfill skips events that are `defaultPrevented`.
@@ -11,7 +12,7 @@ import { RuntimeCapabilitiesService } from '@iptvnator/services';
 export async function loadSpatialNavigation(
     runtime: RuntimeCapabilitiesService,
     importer: () => Promise<unknown> = () =>
-        import('spatial-navigation-polyfill')
+        import('../vendor/spatial-navigation-polyfill/spatial-navigation-polyfill.js')
 ): Promise<boolean> {
     if (!runtime.isNativeShell) return false;
     if ('navigate' in window) return true;

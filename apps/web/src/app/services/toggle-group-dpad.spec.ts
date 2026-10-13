@@ -24,13 +24,13 @@ describe('startToggleGroupDpad', () => {
                 <button id="list">List view</button>
             </div>
             <button id="outside">Play</button>`;
-        first = document.querySelector('#grid')!;
-        outside = document.querySelector('#outside')!;
+        first = document.querySelector('#grid') as HTMLButtonElement;
+        outside = document.querySelector('#outside') as HTMLButtonElement;
         // Stands in for MatButtonToggleGroup's own (keydown) handler.
         groupKeydown = jest.fn();
         document
-            .querySelector('.mat-button-toggle-group')!
-            .addEventListener('keydown', groupKeydown);
+            .querySelector('.mat-button-toggle-group')
+            ?.addEventListener('keydown', groupKeydown);
         navigate = jest.fn();
         (window as unknown as { navigate: jest.Mock }).navigate = navigate;
         stop = startToggleGroupDpad(window);

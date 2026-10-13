@@ -2,6 +2,8 @@ import nx from '@nx/eslint-plugin';
 import baseConfig from '../../eslint.config.mjs';
 
 export default [
+    // Third-party code kept as published (one documented change each).
+    { ignores: ['**/src/app/vendor/**/*.js'] },
     ...baseConfig,
     ...nx.configs['flat/angular'],
     ...nx.configs['flat/angular-template'],

@@ -50,6 +50,7 @@ import { shouldEnableServiceWorker } from './services/runtime-config';
 import { startNativeStyleTuning } from './services/native-style-tuning';
 import { loadSpatialNavigation } from './services/spatial-navigation.loader';
 import { startToggleGroupDpad } from './services/toggle-group-dpad';
+import { containOverlayDpad } from './services/overlay-dpad-containment';
 import { LazyStalkerPlaylistConnectionEditor } from './services/lazy-stalker-playlist-connection-editor';
 import { provideWorkspaceShellActions } from './services/workspace-shell-actions.service';
 
@@ -108,10 +109,13 @@ export const appConfig: ApplicationConfig = {
         provideAnimations(),
         provideAppInitializer(() => {
             const runtime = inject(RuntimeCapabilitiesService);
+            const overlays = inject(OverlayContainer);
             startNativeStyleTuning(runtime);
             // Not awaited: the first render does not wait for the D-pad.
             void loadSpatialNavigation(runtime).then((active) => {
-                if (active) startToggleGroupDpad();
+                if (!active) return;
+                startToggleGroupDpad();
+                containOverlayDpad(overlays.getContainerElement());
             });
         }),
         // CDK overlays (menus, tooltips, dialogs) live in a container under
