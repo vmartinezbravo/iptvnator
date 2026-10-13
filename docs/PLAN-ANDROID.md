@@ -1425,6 +1425,19 @@ y M3U no lo tienen.
       - en las filas de canales, derecha ya no se detiene en la estrella.
       - No se resuelven: izquierda desde una rejilla vuelve a la categoría que está a su altura, y en la ficha de serie, arriba desde la descripción y abajo tras el último elemento siguen saltando a las categorías. Dependen del mapa de foco, aparcado.
     - **Coste estimado (propuesta C):** M. Hay que reenviar Menú en `MainActivity`, crear un servicio de menú contextual que lea las acciones del elemento enfocado (cada tarjeta, fila o episodio declara las suyas) y añadir las clases del runtime en 5 o 6 plantillas, con tests que fallen primero en cada una.
+  - **Tarea D: indicador de carga** [2026-10-13]. Antes de implementar, se midió en el Stick cuánto tarda cada paso:
+    - **Inicio del reproductor:** 4,1 s al elegir canal y 2,9 s en el zapping (mediciones de la 4c). Mientras se resolvía la dirección del canal, la pantalla quedaba en negro, porque el indicador de Media3 (`show_buffering="when_playing"`) solo aparece una vez preparado el vídeo.
+      - **Hecho:** un indicador propio en el centro, desde cada inicio o zapping hasta el primer fotograma y otra vez si el vídeo se queda cargando. Lo sustituye la pantalla de error. El de Media3 pasa a `never`, para que no salgan dos.
+      - **Ruling:** se muestra al instante, sin esperar 1 s, porque todo inicio tarda más de 2 s.
+      - Test que falló antes: `LoadingSpinnerTest` (no compilaba porque la clase no existía).
+      - Comprobado con el HLS de prueba: al hacer zapping se ven el indicador y el nombre del canal, y desaparece al empezar el vídeo.
+    - **Apertura de sección** (desde el clic hasta que hay categorías y tarjetas):
+      - en caliente: Live TV 0,8 s, Series 0,5 s, Películas 1,6 s;
+      - en frío, la primera vez tras arrancar: Películas 26 s. Ese caso ya tiene indicador: esqueletos grises con «Fetching playlist data from source…» y la capa «Syncing playlist» con barra de progreso.
+    - **Cambio de categoría:** 0,13–0,5 s en Live TV; en Películas y Series, el primero de cada sección tarda 0,8–1,0 s y los demás menos de 0,25 s.
+    - **No hecho, y por qué:** en las aperturas de sección en caliente el hilo de la página queda bloqueado entre 0,6 y 1 s (una sonda cada 100 ms no llegó a ejecutarse hasta los 568–1026 ms). Un indicador lanzado desde JavaScript no llegaría a pintarse antes de que acabe el bloqueo.
+      - Alternativa: pintar primero una barra fina animada por CSS (sin JavaScript) y retrasar un fotograma la navegación del menú lateral. Coste S–M y con riesgo de efectos en la navegación.
+      - Como solo Películas en caliente pasa de 1 s (1,6 s) y la palanca E de la fase 6 apunta a acortar esos bloqueos, queda **pendiente de que Víctor decida**.
   - **Tarea E: icono del launcher** [2026-10-13], comprobado con adb (`cmd package query-activities … LEANBACK_LAUNCHER`) y sin desinstalar nada.
     - El launcher de TV lista 15 apps, entre ellas `com.victor.iptvnator/.MainActivity`.
     - La app del icono de conector es IPTVnator: usa el icono por defecto de Capacitor (`res/mipmap-*/ic_launcher*.png`, el adaptativo de `mipmap-anydpi-v26` y su fondo `ic_launcher_background`), que no se cambió al crear el proyecto. Fire OS muestra ese icono en «Tus apps»; el banner nuevo de la 5.1 solo aparece en las filas de TV.

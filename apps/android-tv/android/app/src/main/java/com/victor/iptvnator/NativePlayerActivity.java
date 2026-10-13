@@ -61,6 +61,7 @@ public class NativePlayerActivity extends AppCompatActivity {
     private View titleBar;
     private TextView titleView;
     private TextView subtitleView;
+    private View loadingView;
     private final Runnable hideTitle = () -> titleBar.setVisibility(View.GONE);
     private PlayerErrorOverlay errorOverlay;
     private ChannelCursor cursor;
@@ -101,6 +102,7 @@ public class NativePlayerActivity extends AppCompatActivity {
         titleBar = findViewById(R.id.player_title_bar);
         titleView = findViewById(R.id.player_title);
         subtitleView = findViewById(R.id.player_subtitle);
+        loadingView = findViewById(R.id.player_loading);
         errorOverlay = new PlayerErrorOverlay(findViewById(R.id.player_error));
         cursor = new ChannelCursor(urls.size(), intent.getIntExtra(NativePlayerPlugin.EXTRA_INDEX, 0));
         isLive = intent.getBooleanExtra(NativePlayerPlugin.EXTRA_IS_LIVE, false);
@@ -135,6 +137,7 @@ public class NativePlayerActivity extends AppCompatActivity {
             @Override
             public void onRenderedFirstFrame() {
                 reportFirstFrame();
+                updateLoading();
             }
 
             @Override
@@ -144,6 +147,7 @@ public class NativePlayerActivity extends AppCompatActivity {
 
             @Override
             public void onPlaybackStateChanged(int state) {
+                updateLoading();
                 if (state == Player.STATE_ENDED && !isLive) {
                     // The end of a movie or an episode: it counts as watched.
                     close(PlaybackProgress.endPositionMs(player.getCurrentPosition(), player.getDuration()));
@@ -154,6 +158,7 @@ public class NativePlayerActivity extends AppCompatActivity {
             @Override
             public void onPlayerError(PlaybackException error) {
                 errorOverlay.showPlaybackError();
+                updateLoading();
                 NativePlayerEvents.error(cursor.index(), error.getErrorCodeName(), error.getMessage());
             }
         });
@@ -269,6 +274,7 @@ public class NativePlayerActivity extends AppCompatActivity {
         audioTrackChosen = false;
         errorOverlay.hide();
         player.stop();
+        updateLoading();
         player.setTrackSelectionParameters(
             player
                 .getTrackSelectionParameters()
@@ -286,6 +292,12 @@ public class NativePlayerActivity extends AppCompatActivity {
             String playable = StreamRedirects.resolve(url, userAgent, StreamRedirects.HTTP, MAX_REDIRECTS);
             mainThread.post(() -> start(current, playable, startPositionMs));
         });
+    }
+
+    private void updateLoading() {
+        boolean visible = player != null
+            && LoadingSpinner.visible(firstFrameSeen, player.getPlaybackState(), errorOverlay.isShown());
+        loadingView.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     /** Sets the lines of the item; a live channel shows them for a while. */
