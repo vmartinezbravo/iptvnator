@@ -19,7 +19,7 @@ import {
     getXtreamCatchupDays,
     isXtreamCatchupAvailable,
 } from '@iptvnator/portal/shared/util';
-import { SettingsStore } from '@iptvnator/services';
+import { RuntimeCapabilitiesService, SettingsStore } from '@iptvnator/services';
 import {
     ProgressCapsuleComponent,
     WatchedBadgeComponent,
@@ -282,13 +282,26 @@ function normalizeArtworkUrl(value: string | undefined): string | undefined {
         ProgressCapsuleComponent,
         WatchedBadgeComponent,
     ],
-    host: { '[class.grid-list--posters-only]': 'postersOnly()' },
+    host: {
+        '[class.grid-list--posters-only]': 'postersOnly()',
+        '[style.--spatial-navigation-action]': 'spatialNavigationAction',
+    },
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GridListComponent {
     private readonly failedArtworkUrls = signal<ReadonlySet<string>>(new Set());
     private readonly settingsStore = inject(SettingsStore);
     private readonly coverTitles = inject(CoverTitlesService);
+    /**
+     * The grid scrolls itself. On the TV shell the spatial navigation
+     * polyfill would only scroll it while the next row is out of view; with
+     * `focus` the D-pad moves to that row and scrolls it into view.
+     */
+    protected readonly spatialNavigationAction = inject(
+        RuntimeCapabilitiesService
+    ).isNativeShell
+        ? 'focus'
+        : null;
 
     readonly items = input<GridListItem[]>([]);
     readonly isLoading = input<boolean>(false);

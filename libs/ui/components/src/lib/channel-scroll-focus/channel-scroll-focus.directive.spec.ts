@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { RuntimeCapabilitiesService } from '@iptvnator/services';
 import {
     ChannelScrollFocusDirective,
     focusLiveChannels,
@@ -145,5 +146,87 @@ describe('Channel scroll focus', () => {
         pane.append(document.createElement('button'));
         fixture.detectChanges();
         expect(document.activeElement).toBe(category);
+    });
+});
+
+@Component({
+    imports: [ChannelScrollFocusDirective],
+    template: `
+        <div appChannelScrollFocus id="live-channels" aria-label="Channels">
+            @for (name of channels; track name) {
+                <div class="channel-list-item">
+                    <button class="channel-content">{{ name }}</button>
+                    <button class="favorite-button">Favorite</button>
+                </div>
+            }
+        </div>
+    `,
+})
+class TvHost {
+    readonly channels = ['One', 'Two', 'Three'];
+}
+
+describe('Channel scroll focus on a native shell (D-pad)', () => {
+    let pane: HTMLElement;
+    let rows: HTMLButtonElement[];
+    const key = (element: HTMLElement, key: string) => {
+        const event = new KeyboardEvent('keydown', {
+            key,
+            bubbles: true,
+            cancelable: true,
+        });
+        element.dispatchEvent(event);
+        return event;
+    };
+
+    beforeEach(() => {
+        TestBed.configureTestingModule({
+            providers: [
+                {
+                    provide: RuntimeCapabilitiesService,
+                    useValue: { isNativeShell: true },
+                },
+            ],
+        });
+        const fixture = TestBed.createComponent(TvHost);
+        fixture.detectChanges();
+        pane = fixture.nativeElement.querySelector('#live-channels');
+        rows = Array.from(pane.querySelectorAll('button.channel-content'));
+    });
+
+    it('moves the focus to the next and previous channel row', () => {
+        rows[0].focus();
+
+        expect(key(rows[0], 'ArrowDown').defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(rows[1]);
+        expect(key(rows[1], 'ArrowDown').defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(rows[2]);
+        expect(key(rows[2], 'ArrowUp').defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(rows[1]);
+    });
+
+    it('enters the rows from the pane', () => {
+        pane.focus();
+
+        expect(key(pane, 'ArrowDown').defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(rows[0]);
+    });
+
+    it('keeps the focus on the first and last rows at the ends of the list', () => {
+        rows[2].focus();
+        expect(key(rows[2], 'ArrowDown').defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(rows[2]);
+
+        rows[0].focus();
+        expect(key(rows[0], 'ArrowUp').defaultPrevented).toBe(true);
+        expect(document.activeElement).toBe(rows[0]);
+    });
+
+    it('leaves the favorite buttons to spatial navigation', () => {
+        const favorite = pane.querySelector<HTMLElement>('.favorite-button')!;
+        favorite.focus();
+
+        expect(key(favorite, 'ArrowDown').defaultPrevented).toBe(false);
+        expect(document.activeElement).toBe(favorite);
     });
 });

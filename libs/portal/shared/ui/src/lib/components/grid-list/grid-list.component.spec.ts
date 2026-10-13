@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslatePipe } from '@ngx-translate/core';
 import { MockPipe } from 'ng-mocks';
-import { SettingsStore } from '@iptvnator/services';
+import { RuntimeCapabilitiesService, SettingsStore } from '@iptvnator/services';
 import {
     formatGridRating,
     GridListComponent,
@@ -524,5 +524,47 @@ describe('GridListComponent keyboard access', () => {
 
         expect(clicked).toHaveBeenCalledTimes(2);
         expect(space.defaultPrevented).toBe(true);
+    });
+});
+
+describe('GridListComponent D-pad navigation', () => {
+    function hostStyle(isNativeShell: boolean): string {
+        TestBed.configureTestingModule({
+            imports: [GridListComponent],
+            providers: [
+                {
+                    provide: SettingsStore,
+                    useValue: { showCoverTitles: signal(true) },
+                },
+                {
+                    provide: RuntimeCapabilitiesService,
+                    useValue: { isNativeShell },
+                },
+            ],
+        }).overrideComponent(GridListComponent, {
+            remove: { imports: [TranslatePipe] },
+            add: {
+                imports: [
+                    MockPipe(
+                        TranslatePipe,
+                        (value: string | null | undefined) => value ?? ''
+                    ),
+                ],
+            },
+        });
+        const fixture = TestBed.createComponent(GridListComponent);
+        fixture.componentRef.setInput('items', [{ title: 'Blade Runner' }]);
+        fixture.detectChanges();
+        return (fixture.nativeElement as HTMLElement).style.getPropertyValue(
+            '--spatial-navigation-action'
+        );
+    }
+
+    it('lets the D-pad focus the next row before it scrolls into view on a native shell', () => {
+        expect(hostStyle(true)).toBe('focus');
+    });
+
+    it('keeps the default spatial navigation elsewhere', () => {
+        expect(hostStyle(false)).toBe('');
     });
 });

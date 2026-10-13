@@ -13,6 +13,7 @@ import {
     ChangeDetectionStrategy,
 } from '@angular/core';
 import { registerWorkspaceBack } from '@iptvnator/portal/shared/data-access';
+import { RuntimeCapabilitiesService } from '@iptvnator/services';
 import { ContentHeroComponent } from '../content-hero/content-hero.component';
 import { ContentAboutComponent } from './content-about.component';
 import {
@@ -53,12 +54,23 @@ import {
         // on body, while preserving already-handled events and overlay guards.
         '(keydown.escape)': 'onEscape($event)',
         '[class.shell-host--watch]': 'isWatch()',
+        '[style.--spatial-navigation-action]': 'spatialNavigationAction',
         '(document:keydown.escape)': 'onEscape($event)',
     },
 })
 export class PortalDetailShellComponent {
     private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
     private readonly injector = inject(Injector);
+    /**
+     * The shell owns the page scroll. On the TV shell the spatial navigation
+     * polyfill would only scroll it while the next episode row is out of
+     * view; with `focus` the D-pad moves to that row and scrolls it in.
+     */
+    protected readonly spatialNavigationAction = inject(
+        RuntimeCapabilitiesService
+    ).isNativeShell
+        ? 'focus'
+        : null;
 
     readonly title = input<string>();
     /** "Movie · playlist name" eyebrow above the hero title. */

@@ -48,6 +48,8 @@ import { provideParentalLockPrompt } from './services/parental-lock-prompt.servi
 import { providePortalPlaybackPositions } from './services/portal-playback-positions.service';
 import { shouldEnableServiceWorker } from './services/runtime-config';
 import { startNativeStyleTuning } from './services/native-style-tuning';
+import { loadSpatialNavigation } from './services/spatial-navigation.loader';
+import { startToggleGroupDpad } from './services/toggle-group-dpad';
 import { LazyStalkerPlaylistConnectionEditor } from './services/lazy-stalker-playlist-connection-editor';
 import { provideWorkspaceShellActions } from './services/workspace-shell-actions.service';
 
@@ -105,7 +107,12 @@ export const appConfig: ApplicationConfig = {
         provideRouter(routes, withComponentInputBinding()),
         provideAnimations(),
         provideAppInitializer(() => {
-            startNativeStyleTuning(inject(RuntimeCapabilitiesService));
+            const runtime = inject(RuntimeCapabilitiesService);
+            startNativeStyleTuning(runtime);
+            // Not awaited: the first render does not wait for the D-pad.
+            void loadSpatialNavigation(runtime).then((active) => {
+                if (active) startToggleGroupDpad();
+            });
         }),
         // CDK overlays (menus, tooltips, dialogs) live in a container under
         // <body>, which the browser hides behind an element in DOM fullscreen.

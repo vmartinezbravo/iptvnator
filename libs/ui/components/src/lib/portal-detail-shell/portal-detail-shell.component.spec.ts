@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { WorkspaceBackNavigationService } from '@iptvnator/portal/shared/data-access';
+import { RuntimeCapabilitiesService } from '@iptvnator/services';
 import {
     DetailActionsTemplateDirective,
     DetailMetaTemplateDirective,
@@ -454,5 +455,33 @@ describe('PortalDetailShellComponent', () => {
             })
         );
         expect(host.closeRequests).toBe(0);
+    });
+});
+
+describe('PortalDetailShellComponent D-pad navigation', () => {
+    async function shellStyle(isNativeShell: boolean): Promise<string> {
+        await TestBed.configureTestingModule({
+            imports: [HostComponent, TranslateModule.forRoot()],
+            providers: [
+                {
+                    provide: RuntimeCapabilitiesService,
+                    useValue: { isNativeShell },
+                },
+            ],
+        }).compileComponents();
+        const fixture = TestBed.createComponent(HostComponent);
+        fixture.detectChanges();
+        const shell = (fixture.nativeElement as HTMLElement).querySelector(
+            'app-portal-detail-shell'
+        ) as HTMLElement;
+        return shell.style.getPropertyValue('--spatial-navigation-action');
+    }
+
+    it('lets the D-pad focus the next episode row before it scrolls into view on a native shell', async () => {
+        expect(await shellStyle(true)).toBe('focus');
+    });
+
+    it('keeps the default spatial navigation elsewhere', async () => {
+        expect(await shellStyle(false)).toBe('');
     });
 });
