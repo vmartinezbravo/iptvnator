@@ -1353,6 +1353,14 @@ y M3U no lo tienen.
        - Abajo desde el último botón del menú (Ajustes) entra en las categorías.
 
     Sin verificar: el zapping, porque reproducir canales añade entradas a los recientes reales; y la rejilla de series, que se comprobará tras el arreglo. Ningún cambio de código hasta que Víctor apruebe el diagnóstico.
+  - **Arreglos** [Víctor aprobó el diagnóstico, 2026-10-13]. Se hacen en orden, parando tras cada paso:
+    1. Causa 1.
+    2. Causa 2.
+    3. Repetir en el Stick los recorridos y `ui-fluidity.mjs`. Límite de 100/120 ms por tecla: si se pasa, parar y proponer alternativas. Para el zapping, usar un contenido que indique Víctor o pedirle que lo pruebe él.
+    4. Solo si los defectos de recorrido siguen molestando, proponer un mapa de foco mínimo.
+    5. C, D y E.
+  - **Paso 1 hecho**: en la copia del polyfill, la posición guardada se olvida cuando un elemento recibe el foco y se vuelve a calcular en cada búsqueda. Solo se usa mientras su elemento siga en la página. El comentario de origen dice que el fallo ya estaba en la 1.3.1. Tests: «forgets the hidden element position once the focus reaches another element» y «forgets the position of a focused element that left the page», que fallaron antes del arreglo, y «keeps going from where a focused element was when it is hidden in place», como guarda de lo que ya funcionaba.
+    - Coste asumido: si el elemento enfocado sale de la página (por ejemplo, porque Angular vuelve a pintar la fila), la tecla siguiente busca desde la página y no desde donde estaba ese elemento.
 - [ ] **Step 2: Hacer la prueba de aceptación con Víctor, solo con el mando:**
   - abrir la app → canal de deportes → zapping de 3 canales, viendo "ahora / después";
   - buscar una película → reproducirla → Atrás;

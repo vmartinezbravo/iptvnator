@@ -12,7 +12,18 @@
 /* IPTVnator copy of spatial-navigation-polyfill 1.3.1 (npm), file
  * polyfill/spatial-navigation-polyfill.js; its MIT license is in ./LICENSE.
  *
- * One change, in hitTest(): after the viewport bounds check, the original
+ * Two changes.
+ *
+ * 1. Saved search origin (a bug also present in the original 1.3.1): when
+ * the focused element lost its size, findSearchOrigin() stored its last
+ * rect in searchOriginRect and never cleared it, so every later search
+ * started from that old rect instead of the focused element, and the
+ * D-pad bounced between the two neighbours of that point until the page
+ * reloaded. The copy clears it whenever an element gains the focus, works
+ * it out again on every search, and uses it only while its element is
+ * still in the page.
+ *
+ * 2. In hitTest(): after the viewport bounds check, the original
  * called document.elementFromPoint() at up to three points of every
  * candidate to see whether something covers it. On the Fire TV Stick that
  * cost ~60 ms per D-pad key (354 ms over 6 keys in the side menu). The copy
@@ -145,6 +156,8 @@
       if (e.target !== window) {
         savedSearchOrigin.element = e.target;
         savedSearchOrigin.rect = e.target.getBoundingClientRect();
+        // IPTVnator: a new focus forgets the previous saved rect.
+        searchOriginRect = null;
       }
     });
   }
@@ -777,7 +790,10 @@
       searchOrigin = document.documentElement;
     }
     // When the previous search origin lost its focus by blur: (1) display:none () element size turned into zero
-    if (savedSearchOrigin.element &&
+    // IPTVnator: the saved rect is worked out again on every search, and only
+    // while its element is still in the page.
+    searchOriginRect = null;
+    if (savedSearchOrigin.element && savedSearchOrigin.element.isConnected &&
       ((getBoundingClientRect(savedSearchOrigin.element).height === 0) || (getBoundingClientRect(savedSearchOrigin.element).width === 0))) {
       searchOriginRect = savedSearchOrigin.rect;
     }
