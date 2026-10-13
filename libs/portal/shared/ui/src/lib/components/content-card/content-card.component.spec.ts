@@ -195,4 +195,22 @@ describe('ContentCardComponent', () => {
         expect(space.defaultPrevented).toBe(false);
         expect(removed).toHaveBeenCalledTimes(1);
     });
+
+    it('hands the Remove control to the TV options menu, named after its tooltip', () => {
+        fixture.componentRef.setInput('showRemoveButton', true);
+        fixture.componentRef.setInput('removeTooltip', 'Remove from favorites');
+        fixture.detectChanges();
+
+        const activation = fixture.nativeElement.querySelector(
+            '.content-card__activation'
+        ) as HTMLElement;
+        const item = activation.closest('[data-tv-item]');
+        const remove = fixture.nativeElement.querySelector('.remove-button');
+        expect(item).not.toBeNull();
+        expect(item?.contains(remove)).toBe(true);
+        expect(remove.hasAttribute('data-tv-action')).toBe(true);
+        expect(remove.getAttribute('data-tv-label')).toBe(
+            'Remove from favorites'
+        );
+    });
 });

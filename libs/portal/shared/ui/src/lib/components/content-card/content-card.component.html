@@ -1,4 +1,6 @@
-<div class="content-card">
+<!-- On the TV shell the Remove control leaves the D-pad path: the Menu key or
+     a long OK on the card offers it (data-tv-item / data-tv-action). -->
+<div class="content-card" data-tv-item>
     <!-- The activation surface is its own element so the Remove control
          below stays a sibling: an interactive control nested inside a
          role="button" is an invalid accessibility structure. -->
@@ -74,6 +76,8 @@
             mat-icon-button
             type="button"
             class="remove-button"
+            data-tv-action
+            [attr.data-tv-label]="removeTooltip() || ('REMOVE' | translate)"
             [matTooltip]="removeTooltip() || ('REMOVE' | translate)"
             [attr.aria-label]="removeTooltip() || ('REMOVE' | translate)"
             (click)="onRemoveClick($event)"
